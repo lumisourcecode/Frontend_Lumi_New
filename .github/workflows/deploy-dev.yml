@@ -33,7 +33,6 @@ jobs:
           mkdir -p ~/.ssh
           echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy on EC2
         env:
@@ -44,7 +43,7 @@ jobs:
           APP_NAME: lumi-ride-dev
           APP_PORT: 3000
         run: |
-          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "${EC2_USER}@${EC2_HOST}" "
+          ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "${EC2_USER}@${EC2_HOST}" "
             set -euo pipefail
 
             # 1) One-time / repeat-safe server bootstrap
