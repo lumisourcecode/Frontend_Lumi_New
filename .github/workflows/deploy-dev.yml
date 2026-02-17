@@ -67,21 +67,21 @@ jobs:
             fi
 
             # 3) Configure nginx reverse proxy (idempotent)
-            sudo bash -c \"cat > /etc/nginx/sites-available/lumi-ride-dev <<'EOF'
-            server {
-              listen 80;
-              server_name 13.239.237.63;
-
-              location / {
-                proxy_pass http://127.0.0.1:${APP_PORT};
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade \$http_upgrade;
-                proxy_set_header Connection 'upgrade';
-                proxy_set_header Host \$host;
-                proxy_cache_bypass \$http_upgrade;
-              }
-            }
-EOF\"
+            sudo bash -c \"printf '%s\n' \
+            'server {' \
+            '  listen 80;' \
+            '  server_name 13.239.237.63;' \
+            '' \
+            '  location / {' \
+            '    proxy_pass http://127.0.0.1:${APP_PORT};' \
+            '    proxy_http_version 1.1;' \
+            '    proxy_set_header Upgrade \\\$http_upgrade;' \
+            '    proxy_set_header Connection \\\"upgrade\\\";' \
+            '    proxy_set_header Host \\\$host;' \
+            '    proxy_cache_bypass \\\$http_upgrade;' \
+            '  }' \
+            '}' \
+            > /etc/nginx/sites-available/lumi-ride-dev\"
             sudo ln -sf /etc/nginx/sites-available/lumi-ride-dev /etc/nginx/sites-enabled/lumi-ride-dev
             sudo nginx -t
             sudo systemctl reload nginx
