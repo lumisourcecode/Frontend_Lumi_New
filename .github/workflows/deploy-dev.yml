@@ -44,7 +44,7 @@ jobs:
           APP_NAME: lumi-ride-dev
           APP_PORT: 3000
         run: |
-          ssh "${EC2_USER}@${EC2_HOST}" "
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "${EC2_USER}@${EC2_HOST}" "
             set -euo pipefail
 
             # 1) One-time / repeat-safe server bootstrap
