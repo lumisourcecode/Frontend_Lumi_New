@@ -1,0 +1,94 @@
+name: Deploy Dev to EC2
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install and Build
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Configure SSH key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          APP_DIR: ${{ secrets.EC2_APP_DIR }}
+          GIT_REPO_URL: ${{ secrets.GIT_REPO_URL }}
+          APP_NAME: lumi-ride-dev
+          APP_PORT: 3000
+        run: |
+          ssh "${EC2_USER}@${EC2_HOST}" "
+            set -euo pipefail
+
+            # 1) One-time / repeat-safe server bootstrap
+            command -v git >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y git)
+            command -v nginx >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y nginx)
+            command -v node >/dev/null 2>&1 || (
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - &&
+              sudo apt-get install -y nodejs
+            )
+            command -v pm2 >/dev/null 2>&1 || sudo npm i -g pm2
+
+            # 2) Ensure app directory and source code exist
+            mkdir -p '${APP_DIR}'
+            if [ ! -d '${APP_DIR}/.git' ]; then
+              if [ -z '${GIT_REPO_URL}' ]; then
+                echo 'GIT_REPO_URL secret is missing. Set it in GitHub Actions secrets.' >&2
+                exit 1
+              fi
+              git clone '${GIT_REPO_URL}' '${APP_DIR}'
+            fi
+
+            # 3) Configure nginx reverse proxy (idempotent)
+            sudo bash -c \"cat > /etc/nginx/sites-available/lumi-ride-dev <<'EOF'
+            server {
+              listen 80;
+              server_name 13.239.237.63;
+
+              location / {
+                proxy_pass http://127.0.0.1:${APP_PORT};
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade \$http_upgrade;
+                proxy_set_header Connection 'upgrade';
+                proxy_set_header Host \$host;
+                proxy_cache_bypass \$http_upgrade;
+              }
+            }
+EOF\"
+            sudo ln -sf /etc/nginx/sites-available/lumi-ride-dev /etc/nginx/sites-enabled/lumi-ride-dev
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            # 4) Deploy latest dev
+            export APP_DIR='${APP_DIR}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}'
+            cd '${APP_DIR}'
+            chmod +x ./scripts/deploy-ec2.sh
+            bash ./scripts/deploy-ec2.sh dev
+          "
