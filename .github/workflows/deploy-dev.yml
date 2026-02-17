@@ -64,7 +64,7 @@ jobs:
                 echo 'GIT_REPO_URL secret is missing. Set it in GitHub Actions secrets.' >&2
                 exit 1
               fi
-              git clone '${GIT_REPO_URL}' '${APP_DIR}'
+              git clone --branch dev --single-branch '${GIT_REPO_URL}' '${APP_DIR}'
             fi
 
             # 3) Configure nginx reverse proxy (idempotent)
@@ -90,6 +90,10 @@ jobs:
             # 4) Deploy latest dev
             export APP_DIR='${APP_DIR}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}'
             cd '${APP_DIR}'
+            if [ ! -f ./scripts/deploy-ec2.sh ]; then
+              git fetch origin dev
+              git checkout dev || git checkout -b dev origin/dev
+            fi
             chmod +x ./scripts/deploy-ec2.sh
             bash ./scripts/deploy-ec2.sh dev
           "
