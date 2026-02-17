@@ -57,7 +57,8 @@ jobs:
             command -v pm2 >/dev/null 2>&1 || sudo npm i -g pm2
 
             # 2) Ensure app directory and source code exist
-            mkdir -p '${APP_DIR}'
+            sudo mkdir -p '${APP_DIR}'
+            sudo chown -R '${EC2_USER}:${EC2_USER}' '${APP_DIR}'
             if [ ! -d '${APP_DIR}/.git' ]; then
               if [ -z '${GIT_REPO_URL}' ]; then
                 echo 'GIT_REPO_URL secret is missing. Set it in GitHub Actions secrets.' >&2
