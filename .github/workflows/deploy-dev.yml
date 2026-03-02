@@ -1,0 +1,84 @@
+name: Deploy Frontend Dev to EC2
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH key
+        env:
+          EC2_SSH_KEY_B64: ${{ secrets.EC2_SSH_KEY_B64 }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          if [ -n "$EC2_SSH_KEY_B64" ]; then
+            printf '%s' "$EC2_SSH_KEY_B64" | base64 -d | tr -d '\r' > ~/.ssh/id_rsa
+          elif [ -n "$EC2_SSH_KEY" ]; then
+            printf '%s' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          else
+            echo "Missing EC2_SSH_KEY_B64 or EC2_SSH_KEY secret" >&2
+            exit 1
+          fi
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa >/dev/null
+
+      - name: Deploy frontend on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          APP_DIR: ${{ secrets.EC2_APP_DIR }}
+          APP_NAME: lumi-ride-dev
+          APP_PORT: 3000
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "${EC2_USER}@${EC2_HOST}" "mkdir -p '${APP_DIR}'"
+          rsync -az --delete --exclude '.git' --exclude 'node_modules' -e "ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=20" ./ "${EC2_USER}@${EC2_HOST}:${APP_DIR}/"
+          ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=20 "${EC2_USER}@${EC2_HOST}" '
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            command -v node >/dev/null 2>&1 || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
+            command -v pm2 >/dev/null 2>&1 || sudo npm i -g pm2
+            command -v nginx >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y nginx)
+
+            # Keep same-instance routing: / -> frontend, /api -> backend
+            sudo tee /etc/nginx/sites-available/lumi-ride-dev > /dev/null << "NGINXEOF"
+          server {
+            listen 80;
+            server_name _;
+
+            location /api/ {
+              proxy_pass http://127.0.0.1:4000/;
+              proxy_http_version 1.1;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            location / {
+              proxy_pass http://127.0.0.1:3000;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection upgrade;
+              proxy_set_header Host $host;
+              proxy_cache_bypass $http_upgrade;
+            }
+          }
+          NGINXEOF
+            sudo ln -sf /etc/nginx/sites-available/lumi-ride-dev /etc/nginx/sites-enabled/lumi-ride-dev
+            sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+            sudo nginx -t && sudo systemctl reload nginx
+
+            cd "'"${APP_DIR}"'"
+            export NEXT_PUBLIC_API_BASE_URL=/api
+            export APP_NAME="'"${APP_NAME}"'" APP_PORT="'"${APP_PORT}"'"
+            chmod +x scripts/deploy-ec2.sh
+            bash scripts/deploy-ec2.sh dev
+          '
