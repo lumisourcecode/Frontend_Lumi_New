@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, Input } from "@/components/ui/primitives";
@@ -13,7 +13,7 @@ const PORTAL_LABELS: Record<string, string> = {
   admin: "Admin",
 };
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const searchParams = useSearchParams();
   const portal = (searchParams.get("portal") ?? "rider") as string;
   const [email, setEmail] = useState("");
@@ -105,5 +105,13 @@ export default function ForgotPasswordPage() {
         </Link>
       </Card>
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-500">Loading...</div>}>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }

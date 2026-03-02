@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
@@ -21,7 +21,7 @@ type UserRow = {
   bookings_count?: number;
 };
 
-export default function AdminUsersPage() {
+function AdminUsersContent() {
   const searchParams = useSearchParams();
   const createParam = searchParams.get("create") as "rider" | "driver" | "agent" | null;
   const [tab, setTab] = useState<"all" | "riders" | "drivers" | "agents">(
@@ -179,5 +179,13 @@ export default function AdminUsersPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function AdminUsersPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-500">Loading...</div>}>
+      <AdminUsersContent />
+    </Suspense>
   );
 }

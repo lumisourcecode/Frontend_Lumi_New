@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiJson, setAuthSession } from "@/lib/api-client";
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [error, setError] = useState("");
@@ -54,5 +54,19 @@ export default function GoogleCallbackPage() {
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4">
       <p className="text-slate-600">Signing you in...</p>
     </div>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4">
+          <p className="text-slate-600">Signing you in...</p>
+        </div>
+      }
+    >
+      <GoogleCallbackContent />
+    </Suspense>
   );
 }

@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Accessibility, CarFront, Dog } from "lucide-react";
 import { applyMptpFareRules } from "@/lib/mptp";
 import { PlacesAutocomplete } from "@/components/map/places-autocomplete";
 import { Badge, Button, Card, Input, Progress, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
-export default function RiderDashboardPage() {
+function RiderDashboardContent() {
   const searchParams = useSearchParams();
   const rebookPickup = searchParams.get("rebook");
   const rebookDropoff = searchParams.get("dropoff");
@@ -211,5 +211,13 @@ export default function RiderDashboardPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function RiderDashboardPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-500">Loading...</div>}>
+      <RiderDashboardContent />
+    </Suspense>
   );
 }
