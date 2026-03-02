@@ -17,6 +17,13 @@ else
   echo "No git repo in ${APP_DIR}; using synced files."
 fi
 
+# Free space on small EC2 instances before install
+rm -rf node_modules .next 2>/dev/null || true
+npm cache clean --force 2>/dev/null || true
+if command -v docker >/dev/null 2>&1; then
+  sudo docker system prune -af >/dev/null 2>&1 || true
+fi
+
 # Support monorepo (root has lumi-ride + backend) or single frontend repo
 if [ -d "lumi-ride" ]; then
   npm ci
