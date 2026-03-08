@@ -18,11 +18,27 @@ else
 fi
 
 # Free space on small EC2 instances before install
+free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+min_free_kb=$((2048 * 1024))
+echo "Free disk before install: ${free_kb} KB"
+
 rm -rf node_modules .next 2>/dev/null || true
 npm cache clean --force 2>/dev/null || true
-if command -v docker >/dev/null 2>&1; then
-  sudo docker system prune -af >/dev/null 2>&1 || true
+rm -rf ~/.npm/_cacache ~/.cache 2>/dev/null || true
+pm2 flush >/dev/null 2>&1 || true
+rm -f ~/.pm2/logs/*.log 2>/dev/null || true
+
+if [ "${free_kb}" -lt "${min_free_kb}" ]; then
+  echo "Low disk detected; running extra cleanup."
+  sudo journalctl --vacuum-time=2d >/dev/null 2>&1 || true
+  sudo apt-get clean >/dev/null 2>&1 || true
+  sudo rm -rf /var/lib/apt/lists/* >/dev/null 2>&1 || true
+  if command -v docker >/dev/null 2>&1; then
+    sudo docker system prune -af >/dev/null 2>&1 || true
+  fi
 fi
+
+df -h
 
 # Support monorepo (root has lumi-ride + backend) or single frontend repo
 if [ -d "lumi-ride" ]; then
