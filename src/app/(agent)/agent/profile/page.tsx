@@ -6,7 +6,7 @@ import { apiJson, getAuthSession } from "@/lib/api-client";
 
 type Profile = { email: string; orgName: string; contactName: string };
 
-export default function AgentProfilePage() {
+export default function PartnerProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [orgName, setOrgName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -17,7 +17,7 @@ export default function AgentProfilePage() {
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<Profile>("/agent/profile", undefined, session.accessToken)
+    apiJson<Profile>("/partner/profile", undefined, session.accessToken)
       .then((p) => {
         setProfile(p);
         setOrgName(p.orgName);
@@ -33,7 +33,7 @@ export default function AgentProfilePage() {
     setSaving(true);
     setMsg("");
     try {
-      await apiJson("/agent/profile", {
+      await apiJson("/partner/profile", {
         method: "PATCH",
         body: JSON.stringify({ orgName, contactName }),
       }, session.accessToken);
@@ -48,7 +48,7 @@ export default function AgentProfilePage() {
   return (
     <div className="space-y-4">
       <Card className="bg-[var(--color-primary)] text-white">
-        <h1 className="text-2xl font-bold">Partner / Agent Profile</h1>
+        <h1 className="text-2xl font-bold">Partner Profile</h1>
         <p className="mt-2 text-sm text-indigo-100">
           Update your organization details and contact information. This appears on client communications.
         </p>

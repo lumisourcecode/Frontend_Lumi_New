@@ -2,17 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { PlacesAutocomplete } from "@/components/map/places-autocomplete";
+import { RoutePreview } from "@/components/map/route-preview";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
+import { haversineKm } from "@/lib/distance";
 
 type Rider = { id: string; email: string; full_name?: string };
-type Booking = { id: string; pickup: string; dropoff: string; status: string; mobility_needs?: string; notes?: string };
+type Booking = {
+  id: string;
+  pickup: string;
+  dropoff: string;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
+  status: string;
+  trip_state?: string;
+  driver_name?: string;
+  driver_email?: string;
+  mobility_needs?: string;
+  notes?: string;
+};
 
-export default function AgentBookingsPage() {
+export default function PartnerBookingsPage() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [riderId, setRiderId] = useState("");
   const [pickup, setPickup] = useState("");
   const [dropoff, setDropoff] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [when, setWhen] = useState("");
   const [mobilityNeeds, setMobilityNeeds] = useState("Wheelchair-accessible");
   const [notes, setNotes] = useState("");
@@ -22,10 +40,10 @@ export default function AgentBookingsPage() {
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<{ items: Booking[] }>("/agent/bookings", undefined, session.accessToken)
+    apiJson<{ items: Booking[] }>("/partner/bookings", undefined, session.accessToken)
       .then((res) => setItems(res.items))
       .catch(() => undefined);
-    apiJson<{ items: Rider[] }>("/agent/riders", undefined, session.accessToken)
+    apiJson<{ items: Rider[] }>("/partner/riders", undefined, session.accessToken)
       .then((res) => {
         setRiders(res.items);
         if (res.items[0]) setRiderId(res.items[0].id);
@@ -33,10 +51,10 @@ export default function AgentBookingsPage() {
       .catch(() => undefined);
   }, []);
 
-  async function createAgentBooking() {
+  async function createPartnerBooking() {
     const session = getAuthSession();
     if (!session?.accessToken) {
-      setMessage("Please login as agent first.");
+      setMessage("Please login as partner first.");
       return;
     }
     if (!riderId) {
@@ -45,14 +63,20 @@ export default function AgentBookingsPage() {
     }
     try {
       const res = await apiJson<{ booking: Booking }>(
-        "/agent/bookings",
+        "/partner/bookings",
         {
           method: "POST",
           body: JSON.stringify({
             riderId,
             pickup: pickup || "Facility Pickup",
             dropoff: dropoff || "Clinic Dropoff",
+            pickupLat: pickupCoords?.lat,
+            pickupLng: pickupCoords?.lng,
+            dropoffLat: dropoffCoords?.lat,
+            dropoffLng: dropoffCoords?.lng,
             scheduledAt: when || new Date(Date.now() + 3600000).toISOString(),
+            mobilityNeeds,
+            notes,
           }),
         },
         session.accessToken,
@@ -88,11 +112,28 @@ export default function AgentBookingsPage() {
           </Select>
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium">Pickup</label>
-            <PlacesAutocomplete value={pickup} onChange={(v) => setPickup(v)} placeholder="Pickup address in Australia" />
+            <PlacesAutocomplete
+              value={pickup}
+              onChange={(v, place) => {
+                setPickup(v);
+                setPickupCoords(place?.lat != null && place?.lng != null ? { lat: place.lat, lng: place.lng } : null);
+              }}
+              placeholder="Pickup address in Australia"
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Drop-off</label>
-            <PlacesAutocomplete value={dropoff} onChange={(v) => setDropoff(v)} placeholder="Destination in Australia" />
+            <PlacesAutocomplete
+              value={dropoff}
+              onChange={(v, place) => {
+                setDropoff(v);
+                setDropoffCoords(place?.lat != null && place?.lng != null ? { lat: place.lat, lng: place.lng } : null);
+              }}
+              placeholder="Destination in Australia"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <RoutePreview origin={pickupCoords} destination={dropoffCoords} />
           </div>
           <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
           <Select value={mobilityNeeds} onChange={(e) => setMobilityNeeds(e.target.value)}>
@@ -104,7 +145,7 @@ export default function AgentBookingsPage() {
           <Textarea className="md:col-span-2" placeholder="Care instructions for driver" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button onClick={createAgentBooking}>Create Booking</Button>
+          <Button onClick={createPartnerBooking}>Create Booking</Button>
           <Button variant="outline">Save as Template</Button>
           <Button variant="outline">Duplicate for Return Trip</Button>
         </div>
@@ -112,14 +153,22 @@ export default function AgentBookingsPage() {
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Recent Agent Bookings</h2>
+        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Recent Partner Bookings</h2>
         <div className="mt-3 space-y-2 text-sm">
           {items.slice(0, 8).map((b) => (
             <div key={b.id} className="rounded-xl border border-slate-200 p-3">
               <p className="font-medium text-[var(--color-primary)]">{String(b.id).slice(0, 8)}...</p>
               <p className="text-slate-600">{b.pickup} → {b.dropoff}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Driver: <strong>{b.driver_name || b.driver_email || "Unassigned"}</strong>
+                {" • "}
+                Distance:{" "}
+                {b.pickup_lat != null && b.pickup_lng != null && b.dropoff_lat != null && b.dropoff_lng != null
+                  ? `${haversineKm(b.pickup_lat, b.pickup_lng, b.dropoff_lat, b.dropoff_lng).toFixed(1)} km`
+                  : "—"}
+              </p>
               {b.mobility_needs && <p className="text-xs text-slate-500">Support: {b.mobility_needs}</p>}
-              <p className="text-xs text-slate-500">Status: {b.status}</p>
+              <p className="text-xs text-slate-500">Status: {b.trip_state || b.status}</p>
             </div>
           ))}
         </div>

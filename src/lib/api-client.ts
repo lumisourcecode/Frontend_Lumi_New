@@ -41,7 +41,7 @@ export async function apiJson<T>(
 
     if (!res.ok) {
       const isAuthRequest = path === "/auth/login" || path === "/auth/register";
-      if ((res.status === 401 || res.status === 403) && !isAuthRequest) {
+      if (res.status === 401 && !isAuthRequest) {
         const inGracePeriod =
           typeof window !== "undefined" &&
           (() => {
@@ -54,7 +54,15 @@ export async function apiJson<T>(
           clearAuthSession();
           if (typeof window !== "undefined") {
             const p = window.location.pathname;
-            const loginPath = p.startsWith("/driver") ? "/driver/login" : p.startsWith("/rider") ? "/rider/login" : p.startsWith("/agent") ? "/agent/login" : p.startsWith("/admin") ? "/admin/login" : "/login";
+            const loginPath = p.startsWith("/driver")
+              ? "/driver/login"
+              : p.startsWith("/rider")
+                ? "/rider/login"
+                : p.startsWith("/partner")
+                  ? "/partner/login"
+                  : p.startsWith("/admin")
+                    ? "/admin/login"
+                    : "/login";
             window.location.href = loginPath;
           }
         }

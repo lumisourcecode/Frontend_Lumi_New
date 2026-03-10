@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { PlacesAutocomplete } from "@/components/map/places-autocomplete";
+import { RoutePreview } from "@/components/map/route-preview";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
+import { haversineKm } from "@/lib/distance";
 
 type Booking = {
   id: string;
+  rider_id?: string;
   pickup: string;
   dropoff: string;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
   scheduled_at: string;
   status: string;
   rider_name?: string;
@@ -16,6 +24,8 @@ type Booking = {
   trip_id?: string;
   trip_state?: string;
   driver_id?: string;
+  driver_name?: string;
+  driver_email?: string;
   mobility_needs?: string;
   notes?: string;
 };
@@ -30,13 +40,21 @@ export default function AdminBookingsPage() {
   const [createRiderId, setCreateRiderId] = useState("");
   const [createPickup, setCreatePickup] = useState("");
   const [createDropoff, setCreateDropoff] = useState("");
+  const [createPickupCoords, setCreatePickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [createDropoffCoords, setCreateDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [createScheduledAt, setCreateScheduledAt] = useState("");
   const [createDriverId, setCreateDriverId] = useState("");
   const [createNotes, setCreateNotes] = useState("");
   const [createMobility, setCreateMobility] = useState("Wheelchair-accessible");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState("all");
 
   const session = getAuthSession();
+
+  const filteredBookings = useMemo(() => {
+    if (filterStatus === "all") return bookings;
+    return bookings.filter((b) => b.status === filterStatus);
+  }, [bookings, filterStatus]);
 
   function refetch() {
     if (!session?.accessToken) return;
@@ -67,6 +85,10 @@ export default function AdminBookingsPage() {
           riderId: createRiderId,
           pickup: createPickup,
           dropoff: createDropoff,
+          pickupLat: createPickupCoords?.lat,
+          pickupLng: createPickupCoords?.lng,
+          dropoffLat: createDropoffCoords?.lat,
+          dropoffLng: createDropoffCoords?.lng,
           scheduledAt: new Date(createScheduledAt).toISOString(),
           driverId: createDriverId || undefined,
           mobilityNeeds: createMobility || undefined,
@@ -126,9 +148,18 @@ export default function AdminBookingsPage() {
       </div>
 
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">All Bookings</h2>
-          <Button onClick={() => setShowCreate(!showCreate)}>{showCreate ? "Hide" : "Create Booking"}</Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="pending_matching">Pending matching</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
+            <Button onClick={() => setShowCreate(!showCreate)}>{showCreate ? "Hide" : "Create Booking"}</Button>
+          </div>
         </div>
         {showCreate ? (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -142,11 +173,28 @@ export default function AdminBookingsPage() {
               </Select>
               <div>
                 <label className="mb-1 block text-sm font-medium">Pickup</label>
-                <PlacesAutocomplete value={createPickup} onChange={(v) => setCreatePickup(v)} placeholder="Pickup in Australia" />
+                <PlacesAutocomplete
+                  value={createPickup}
+                  onChange={(v, place) => {
+                    setCreatePickup(v);
+                    setCreatePickupCoords(place?.lat != null && place?.lng != null ? { lat: place.lat, lng: place.lng } : null);
+                  }}
+                  placeholder="Pickup in Australia"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Drop-off</label>
-                <PlacesAutocomplete value={createDropoff} onChange={(v) => setCreateDropoff(v)} placeholder="Destination in Australia" />
+                <PlacesAutocomplete
+                  value={createDropoff}
+                  onChange={(v, place) => {
+                    setCreateDropoff(v);
+                    setCreateDropoffCoords(place?.lat != null && place?.lng != null ? { lat: place.lat, lng: place.lng } : null);
+                  }}
+                  placeholder="Destination in Australia"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <RoutePreview origin={createPickupCoords} destination={createDropoffCoords} />
               </div>
               <Input type="datetime-local" value={createScheduledAt} onChange={(e) => setCreateScheduledAt(e.target.value)} />
               <Select value={createDriverId} onChange={(e) => setCreateDriverId(e.target.value)}>
@@ -170,10 +218,11 @@ export default function AdminBookingsPage() {
             {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
           </div>
         ) : null}
+        <p className="mt-2 text-xs text-slate-500">Showing {filteredBookings.length} of {bookings.length} bookings</p>
         <div className="mt-4 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
-          ) : bookings.length === 0 ? (
+          ) : filteredBookings.length === 0 ? (
             <p className="py-4 text-sm text-slate-500">No bookings yet. Create one above or from Dispatch.</p>
           ) : (
             <table className="min-w-full text-left text-sm">
@@ -181,6 +230,7 @@ export default function AdminBookingsPage() {
                 <tr className="border-b text-slate-500">
                   <th className="py-2 pr-3">Rider</th>
                   <th className="py-2 pr-3">Route</th>
+                  <th className="py-2 pr-3">Distance</th>
                   <th className="py-2 pr-3">Support</th>
                   <th className="py-2 pr-3">Scheduled</th>
                   <th className="py-2 pr-3">Status</th>
@@ -188,18 +238,41 @@ export default function AdminBookingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((b) => (
+                {filteredBookings.map((b) => (
                   <tr key={b.id} className="border-b">
-                    <td className="py-2 pr-3 font-medium text-slate-900">{b.rider_name || b.rider_email || b.id}</td>
+                    <td className="py-2 pr-3">
+                      {b.rider_id ? (
+                        <Link href={`/admin/users/${b.rider_id}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                          {b.rider_name || b.rider_email || b.id}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-slate-900">{b.rider_name || b.rider_email || b.id}</span>
+                      )}
+                    </td>
                     <td className="py-2 pr-3 text-xs">{b.pickup} → {b.dropoff}</td>
+                    <td className="py-2 pr-3 text-xs">
+                      {b.pickup_lat != null && b.pickup_lng != null && b.dropoff_lat != null && b.dropoff_lng != null
+                        ? `${haversineKm(b.pickup_lat, b.pickup_lng, b.dropoff_lat, b.dropoff_lng).toFixed(1)} km`
+                        : "—"}
+                    </td>
                     <td className="py-2 pr-3 text-xs">{b.mobility_needs || "—"}</td>
                     <td className="py-2 pr-3">{new Date(b.scheduled_at).toLocaleString()}</td>
                     <td className="py-2 pr-3">
                       <Badge tone={b.status === "cancelled" ? "danger" : b.status === "completed" ? "certified" : "pending"}>{b.status}</Badge>
                     </td>
                     <td className="py-2">
-                      {b.status !== "cancelled" && b.status !== "completed" && (
-                        <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {b.trip_id && (
+                          <Link href={`/admin/trips-history?trip=${b.trip_id}`}>
+                            <Button variant="outline" size="sm">Open trip</Button>
+                          </Link>
+                        )}
+                        {b.driver_id && (
+                          <Link href={`/admin/users/${b.driver_id}`}>
+                            <Button variant="outline" size="sm">{b.driver_name || b.driver_email || "Driver"}</Button>
+                          </Link>
+                        )}
+                        {b.status !== "cancelled" && b.status !== "completed" && (
                           <Select
                             value=""
                             onChange={(e) => {
@@ -213,8 +286,8 @@ export default function AdminBookingsPage() {
                             <option value="pending_matching">Pending</option>
                             <option value="cancelled">Cancel</option>
                           </Select>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

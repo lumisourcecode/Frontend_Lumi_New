@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
+import { haversineKm } from "@/lib/distance";
 
 export default function RiderHistoryPage() {
   const [bookings, setBookings] = useState<
@@ -12,8 +13,16 @@ export default function RiderHistoryPage() {
       trip_id?: string;
       pickup: string;
       dropoff: string;
+      pickup_lat?: number | null;
+      pickup_lng?: number | null;
+      dropoff_lat?: number | null;
+      dropoff_lng?: number | null;
       scheduled_at: string;
       status: string;
+      trip_state?: string;
+      driver_name?: string;
+      driver_email?: string;
+      driver_id?: string;
     }>
   >([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +58,7 @@ export default function RiderHistoryPage() {
       setLoading(false);
       return;
     }
-    apiJson<{ items: Array<{ id: string; trip_id?: string; pickup: string; dropoff: string; scheduled_at: string; status: string }> }>(
+    apiJson<{ items: typeof bookings }>(
       "/rider/bookings",
       undefined,
       session.accessToken,
@@ -114,6 +123,8 @@ export default function RiderHistoryPage() {
                 <th className="py-2 pr-3">Trip ID</th>
                 <th className="py-2 pr-3">Date</th>
                 <th className="py-2 pr-3">Route</th>
+                <th className="py-2 pr-3">Driver</th>
+                <th className="py-2 pr-3">Distance</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2 pr-3">Payment</th>
                 <th className="py-2 pr-3">Total</th>
@@ -129,10 +140,18 @@ export default function RiderHistoryPage() {
                     {trip.pickup} to {trip.dropoff}
                   </td>
                   <td className="py-2 pr-3">
+                    <span className="text-slate-800">{trip.driver_name || trip.driver_email || "Unassigned"}</span>
+                  </td>
+                  <td className="py-2 pr-3">
+                    {trip.pickup_lat != null && trip.pickup_lng != null && trip.dropoff_lat != null && trip.dropoff_lng != null
+                      ? `${haversineKm(trip.pickup_lat, trip.pickup_lng, trip.dropoff_lat, trip.dropoff_lng).toFixed(1)} km`
+                      : "—"}
+                  </td>
+                  <td className="py-2 pr-3">
                     <Badge
                       tone={trip.status === "cancelled" ? "danger" : trip.status.toLowerCase().includes("completed") ? "certified" : "pending"}
                     >
-                      {trip.status}
+                      {trip.trip_state || trip.status}
                     </Badge>
                   </td>
                   <td className="py-2 pr-3">Card on file</td>

@@ -9,12 +9,12 @@ import { apiJson, setAuthSession } from "@/lib/api-client";
 import { PasswordStrength, getPasswordStrength } from "@/components/auth/password-strength";
 import { cn } from "@/lib/utils";
 
-type Portal = "rider" | "driver" | "agent" | "admin";
+type Portal = "rider" | "driver" | "partner" | "admin";
 
 const PORTAL_LABELS: Record<Portal, string> = {
   rider: "Rider",
   driver: "Driver",
-  agent: "Partner",
+  partner: "Partner",
   admin: "Admin",
 };
 
@@ -80,7 +80,7 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
 
       setAuthSession({ accessToken: data.accessToken, user: data.user });
       if (portal === "admin") router.push("/admin/dashboard");
-      else if (portal === "agent") router.push("/agent/dashboard");
+      else if (portal === "partner") router.push("/partner/dashboard");
       else if (portal === "driver") router.push("/driver/onboard");
       else router.push("/rider/dashboard");
       router.refresh();
@@ -147,7 +147,7 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
       });
       setAuthSession({ accessToken: data.accessToken, user: data.user });
       if (portal === "admin") router.push("/admin/dashboard");
-      else if (portal === "agent") router.push("/agent/dashboard");
+      else if (portal === "partner") router.push("/partner/dashboard");
       else if (portal === "driver") router.push("/driver/onboard");
       else router.push("/rider/dashboard");
       router.refresh();
@@ -176,7 +176,7 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
         </p>
       )}
 
-      {portal === "agent" && canRegister && (
+      {portal === "partner" && canRegister && (
         <p className="mt-2 text-sm text-slate-500">
           Use your official work email.
         </p>

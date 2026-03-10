@@ -18,6 +18,7 @@ import {
 import { applyMptpFareRules } from "@/lib/mptp";
 import { haversineKm } from "@/lib/distance";
 import { PlacesAutocomplete } from "@/components/map/places-autocomplete";
+import { RoutePreview } from "@/components/map/route-preview";
 import { Button, Card, Input, Progress, Select, Textarea } from "@/components/ui/primitives";
 import { apiJson, getAuthSession, setAuthSession } from "@/lib/api-client";
 
@@ -33,6 +34,20 @@ export default function BookMyRidePage() {
   const [fare, setFare] = useState(78);
   const [eligible, setEligible] = useState(true);
   const [saveCard, setSaveCard] = useState(true);
+  const [riderBookings, setRiderBookings] = useState<Array<{
+    id: string;
+    pickup: string;
+    dropoff: string;
+    status: string;
+    scheduled_at?: string;
+    created_at?: string;
+    trip_id?: string;
+    trip_state?: string;
+    driver_id?: string;
+    driver_name?: string;
+    driver_email?: string;
+  }>>([]);
+  const [riderBookingsLoading, setRiderBookingsLoading] = useState(false);
   const [form, setForm] = useState({
     pickup: "",
     destination: "",
@@ -61,8 +76,21 @@ export default function BookMyRidePage() {
 
   useEffect(() => {
     const s = getAuthSession();
-    if (s?.user?.roles?.includes("rider")) setIsLoggedIn(true);
+    if (s?.user?.roles?.includes("rider")) {
+      setIsLoggedIn(true);
+      setStep((prev) => (prev === 1 ? 2 : prev));
+    }
   }, []);
+
+  useEffect(() => {
+    const s = getAuthSession();
+    if (!s?.accessToken || !s.user?.roles?.includes("rider")) return;
+    setRiderBookingsLoading(true);
+    apiJson<{ items: typeof riderBookings }>("/rider/bookings", undefined, s.accessToken)
+      .then((r) => setRiderBookings(r.items ?? []))
+      .catch(() => setRiderBookings([]))
+      .finally(() => setRiderBookingsLoading(false));
+  }, [isLoggedIn]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-10">
@@ -98,84 +126,98 @@ export default function BookMyRidePage() {
 
           {step === 1 ? (
             <div className="space-y-3">
-              <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
-                <button
-                  type="button"
-                  className={`rounded-full px-4 py-2 text-sm ${
-                    authMode === "signin" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-600"
-                  }`}
-                  onClick={() => setAuthMode("signin")}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-full px-4 py-2 text-sm ${
-                    authMode === "create" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-600"
-                  }`}
-                  onClick={() => setAuthMode("create")}
-                >
-                  Create Account
-                </button>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={form.email}
-                  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                />
-                <Input
-                  type="password"
-                  placeholder={authMode === "create" ? "Set password" : "Password"}
-                  value={form.password}
-                  onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                />
-              </div>
-
-              <Button
-                className="w-full"
-                disabled={authLoading || !form.email || !form.password}
-                onClick={async () => {
-                  setAuthLoading(true);
-                  setAuthError("");
-                  try {
-                    const data = authMode === "create"
-                      ? await apiJson<{ accessToken: string; user: { id: string; email: string; roles: string[] } }>("/auth/register", {
-                          method: "POST",
-                          body: JSON.stringify({ email: form.email, password: form.password, role: "rider", fullName: form.name }),
-                        })
-                      : await apiJson<{ accessToken: string; user: { id: string; email: string; roles: string[] } }>("/auth/login", {
-                          method: "POST",
-                          body: JSON.stringify({ email: form.email, password: form.password, portal: "rider" }),
-                        });
-                    setAuthSession({ accessToken: data.accessToken, user: data.user });
-                    setIsLoggedIn(true);
-                    router.refresh();
-                  } catch (e) {
-                    setAuthError(e instanceof Error ? e.message : "Auth failed");
-                  } finally {
-                    setAuthLoading(false);
-                  }
-                }}
-              >
-                {authLoading ? "Please wait..." : authMode === "create" ? "Create Account & Continue" : "Login & Continue"}
-              </Button>
-              <p className="text-center text-xs text-slate-500">or</p>
-              <Link href="/rider/login">
-                <Button className="w-full" variant="outline">
-                  <Chrome className="mr-2 size-4" />
-                  Open Rider Portal to Login
-                </Button>
-              </Link>
-              {authError ? <p className="text-xs text-red-600">{authError}</p> : null}
               {isLoggedIn ? (
-                <p className="flex items-center gap-2 text-xs text-emerald-700">
-                  <CheckCircle2 className="size-4" />
-                  Account verified. Continue to trip details.
-                </p>
-              ) : null}
+                <Card className="border-emerald-200 bg-emerald-50">
+                  <p className="text-sm font-medium text-emerald-800">You’re already signed in.</p>
+                  <p className="mt-1 text-xs text-emerald-700">Continue to trip details.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button onClick={() => setStep(2)}>Continue</Button>
+                    <Link href="/rider/dashboard"><Button variant="outline">Open Rider Dashboard</Button></Link>
+                  </div>
+                </Card>
+              ) : (
+                <>
+                  <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+                    <button
+                      type="button"
+                      className={`rounded-full px-4 py-2 text-sm ${
+                        authMode === "signin" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-600"
+                      }`}
+                      onClick={() => setAuthMode("signin")}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-full px-4 py-2 text-sm ${
+                        authMode === "create" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-600"
+                      }`}
+                      onClick={() => setAuthMode("create")}
+                    >
+                      Create Account
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={form.email}
+                      onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    />
+                    <Input
+                      type="password"
+                      placeholder={authMode === "create" ? "Set password" : "Password"}
+                      value={form.password}
+                      onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    disabled={authLoading || !form.email || !form.password}
+                    onClick={async () => {
+                      setAuthLoading(true);
+                      setAuthError("");
+                      try {
+                        const data = authMode === "create"
+                          ? await apiJson<{ accessToken: string; user: { id: string; email: string; roles: string[] } }>("/auth/register", {
+                              method: "POST",
+                              body: JSON.stringify({ email: form.email, password: form.password, role: "rider", fullName: form.name }),
+                            })
+                          : await apiJson<{ accessToken: string; user: { id: string; email: string; roles: string[] } }>("/auth/login", {
+                              method: "POST",
+                              body: JSON.stringify({ email: form.email, password: form.password, portal: "rider" }),
+                            });
+                        setAuthSession({ accessToken: data.accessToken, user: data.user });
+                        setIsLoggedIn(true);
+                        setStep(2);
+                        router.refresh();
+                      } catch (e) {
+                        setAuthError(e instanceof Error ? e.message : "Auth failed");
+                      } finally {
+                        setAuthLoading(false);
+                      }
+                    }}
+                  >
+                    {authLoading ? "Please wait..." : authMode === "create" ? "Create Account & Continue" : "Login & Continue"}
+                  </Button>
+                  <p className="text-center text-xs text-slate-500">or</p>
+                  <Link href="/rider/login">
+                    <Button className="w-full" variant="outline">
+                      <Chrome className="mr-2 size-4" />
+                      Open Rider Portal to Login
+                    </Button>
+                  </Link>
+                  {authError ? <p className="text-xs text-red-600">{authError}</p> : null}
+                  {isLoggedIn ? (
+                    <p className="flex items-center gap-2 text-xs text-emerald-700">
+                      <CheckCircle2 className="size-4" />
+                      Account verified. Continue to trip details.
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : null}
 
@@ -205,16 +247,19 @@ export default function BookMyRidePage() {
                   placeholder="Enter destination in Australia"
                 />
               </div>
-              {form.pickupCoords && form.dropoffCoords && (
-                <p className="text-sm text-slate-600 md:col-span-2">
-                  Estimated distance: ~{haversineKm(
-                    form.pickupCoords.lat,
-                    form.pickupCoords.lng,
-                    form.dropoffCoords.lat,
-                    form.dropoffCoords.lng,
-                  ).toFixed(1)} km
-                </p>
-              )}
+              <div className="md:col-span-2">
+                <RoutePreview origin={form.pickupCoords} destination={form.dropoffCoords} />
+                {form.pickupCoords && form.dropoffCoords ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Fallback estimate (straight line): ~{haversineKm(
+                      form.pickupCoords.lat,
+                      form.pickupCoords.lng,
+                      form.dropoffCoords.lat,
+                      form.dropoffCoords.lng,
+                    ).toFixed(1)} km
+                  </p>
+                ) : null}
+              </div>
               <Input
                 type="date"
                 value={form.date}
@@ -399,18 +444,59 @@ export default function BookMyRidePage() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="sticky top-6 h-fit">
           <h3 className="font-bold text-[var(--color-primary)]">Rider Summary</h3>
-          <p className="mt-2 text-xs text-slate-600">Transport budget: $3,800 remaining of $6,200</p>
-          <div className="mt-2">
-            <Progress value={61} />
+          <p className="mt-2 text-xs text-slate-600">
+            {isLoggedIn ? "Signed in as rider. Recent activity below." : "Sign in to see your history, assigned drivers, and trip updates."}
+          </p>
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-600">Recent trips & bookings</p>
+            {riderBookingsLoading ? (
+              <p className="mt-2 text-sm text-slate-600">Loading...</p>
+            ) : riderBookings.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-600">{isLoggedIn ? "No bookings yet." : "Login to load your bookings."}</p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {riderBookings.slice(0, 5).map((b) => (
+                  <div key={b.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-slate-900">{b.pickup} → {b.dropoff}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {b.scheduled_at ? new Date(b.scheduled_at).toLocaleString() : (b.created_at ? new Date(b.created_at).toLocaleString() : "")}
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-xs ${
+                        String(b.status).includes("cancel") ? "bg-red-50 text-red-700" :
+                        String(b.status).includes("completed") ? "bg-emerald-50 text-emerald-700" :
+                        "bg-amber-50 text-amber-700"
+                      }`}>{b.trip_state || b.status}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                      <span className="rounded-full bg-slate-100 px-2 py-1">
+                        Driver: <strong>{b.driver_name || b.driver_email || (b.driver_id ? String(b.driver_id).slice(0, 8) : "Unassigned")}</strong>
+                      </span>
+                      {b.trip_id ? (
+                        <span className="rounded-full bg-slate-100 px-2 py-1">Trip: {String(b.trip_id).slice(0, 8)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-1">
+                  <Link href="/rider/history" className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+                    View full history →
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
           <h3 className="mt-5 font-bold text-[var(--color-primary)]">Live Tracking</h3>
-          <div className="mt-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
-            <p className="flex items-center gap-2 text-xs text-slate-600">
+          <div className="mt-2">
+            <RoutePreview origin={form.pickupCoords} destination={form.dropoffCoords} />
+            <p className="mt-2 flex items-center gap-2 text-xs text-slate-600">
               <CarFront className="size-4 text-[var(--color-primary)]" />
-              Driver ETA map placeholder (realtime vehicle position).
+              Route preview updates as you type/select addresses.
             </p>
           </div>
           <h3 className="mt-5 font-bold text-[var(--color-primary)]">Quick Profile</h3>

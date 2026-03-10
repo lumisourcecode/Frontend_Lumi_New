@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, Card } from "@/components/ui/primitives";
+import { Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
 type Rider = { id: string; email: string; full_name?: string; phone?: string; ndis_id?: string; bookings_count?: string; is_active?: boolean };
@@ -10,6 +10,8 @@ type Rider = { id: string; email: string; full_name?: string; phone?: string; nd
 export default function AdminRidersPage() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -19,6 +21,13 @@ export default function AdminRidersPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const filtered = riders.filter((r) => {
+    const s = search.toLowerCase();
+    const matchSearch = !s || (r.full_name || r.email).toLowerCase().includes(s) || (r.email || "").toLowerCase().includes(s);
+    const matchStatus = status === "all" || (status === "active" ? r.is_active !== false : r.is_active === false);
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div className="space-y-4">
@@ -47,10 +56,18 @@ export default function AdminRidersPage() {
 
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Rider Directory</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <Input placeholder="Search rider" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="all">All statuses</option>
+            <option value="active">Active only</option>
+            <option value="suspended">Suspended only</option>
+          </Select>
+        </div>
         <div className="mt-3 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
-          ) : riders.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <p className="py-4 text-sm text-slate-500">
               No riders yet.{" "}
               <Link href="/admin/users?create=rider" className="font-medium text-[var(--color-primary)] underline">
@@ -70,10 +87,18 @@ export default function AdminRidersPage() {
                 </tr>
               </thead>
               <tbody>
-                {riders.map((r) => (
+                {filtered.map((r) => (
                   <tr key={r.id} className="border-b">
-                    <td className="py-2 pr-3 font-medium text-slate-900">{r.full_name || r.email}</td>
-                    <td className="py-2 pr-3">{r.email}</td>
+                    <td className="py-2 pr-3 font-medium text-slate-900">
+                      <Link href={`/admin/users/${r.id}`} className="text-[var(--color-primary)] hover:underline">
+                        {r.full_name || r.email}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Link href={`/admin/users/${r.id}`} className="text-[var(--color-primary)] hover:underline">
+                        {r.email}
+                      </Link>
+                    </td>
                     <td className="py-2 pr-3">{r.phone || "-"}</td>
                     <td className="py-2 pr-3">{r.ndis_id || "-"}</td>
                     <td className="py-2 pr-3">{r.bookings_count ?? "0"}</td>

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { Accessibility, CarFront, Dog } from "lucide-react";
+import { Accessibility, CarFront, Dog, LocateFixed, MapPin, Route } from "lucide-react";
 import { applyMptpFareRules } from "@/lib/mptp";
 import { PlacesAutocomplete } from "@/components/map/places-autocomplete";
+import { RoutePreview } from "@/components/map/route-preview";
 import { Badge, Button, Card, Input, Progress, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
@@ -19,10 +20,14 @@ function RiderDashboardContent() {
   const [mptpEligible, setMptpEligible] = useState(true);
   const [pickup, setPickup] = useState(rebookPickup ?? "");
   const [dropoff, setDropoff] = useState(rebookDropoff ?? "");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [scheduledAt, setScheduledAt] = useState("");
   const [mobilityNeeds, setMobilityNeeds] = useState("Wheelchair-accessible");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationMsg, setLocationMsg] = useState("");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -40,6 +45,51 @@ function RiderDashboardContent() {
     () => applyMptpFareRules({ baseFare, cardEligible: mptpEligible }),
     [baseFare, mptpEligible],
   );
+
+  async function useMyLocationAsPickup() {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationMsg("Location is not available on this device/browser.");
+      return;
+    }
+    setLocating(true);
+    setLocationMsg("");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setPickupCoords({ lat, lng });
+        setPickup("Current location");
+        setLocating(false);
+        // Optional: try to reverse-geocode to a human label if Maps is loaded
+        try {
+          if (typeof google !== "undefined" && google?.maps?.Geocoder) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+              if (status === "OK" && results?.[0]?.formatted_address) {
+                setPickup(results[0].formatted_address);
+              }
+            });
+          }
+        } catch {
+          // ignore
+        }
+      },
+      (err) => {
+        setLocating(false);
+        setLocationMsg(err?.message || "Failed to get location. Allow location permission in browser.");
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
+
+  function applyRecentBooking(b: { pickup: string; dropoff: string }) {
+    setPickup(b.pickup);
+    setDropoff(b.dropoff);
+    setPickupCoords(null);
+    setDropoffCoords(null);
+    setStep(1);
+    setLocationMsg("");
+  }
 
   async function createBooking() {
     const session = getAuthSession();
@@ -62,6 +112,10 @@ function RiderDashboardContent() {
           body: JSON.stringify({
             pickup,
             dropoff,
+            pickupLat: pickupCoords?.lat,
+            pickupLng: pickupCoords?.lng,
+            dropoffLat: dropoffCoords?.lat,
+            dropoffLng: dropoffCoords?.lng,
             scheduledAt: dt.toISOString(),
             mobilityNeeds,
           }),
@@ -85,44 +139,67 @@ function RiderDashboardContent() {
 
   return (
     <div className="space-y-4">
-      <Card className="bg-[var(--color-primary)] text-white">
-        <h2 className="text-xl font-bold">My Bookings</h2>
-        <p className="mt-1 text-sm text-indigo-100">{recentBookings.length} recent booking(s). Create new below.</p>
-        <div className="mt-3">
-          <Progress value={Math.min(100, recentBookings.length * 20)} />
+      <Card className="overflow-hidden border-none bg-gradient-to-r from-[var(--color-primary)] via-[var(--color-primary-2)] to-[var(--color-primary-3)] text-white">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">Book a Ride</h2>
+            <p className="mt-1 text-sm text-white/80">Fast accessible bookings with live route preview and partner support.</p>
+          </div>
+          <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm">
+            <p className="text-xs text-white/70">Your activity</p>
+            <p className="mt-1 font-semibold">{recentBookings.length} recent booking(s)</p>
+            <div className="mt-2">
+              <Progress value={Math.min(100, recentBookings.length * 20)} />
+            </div>
+          </div>
         </div>
       </Card>
 
-      {recentBookings.length > 0 ? (
-        <Card>
-          <h3 className="font-bold text-[var(--color-primary)]">Recent Bookings</h3>
-          <div className="mt-3 space-y-2">
-            {recentBookings.map((b) => (
-              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm">
-                <span>{b.pickup} → {b.dropoff}</span>
-                <Badge tone={b.status === "cancelled" ? "danger" : b.status.toLowerCase().includes("completed") ? "certified" : "pending"}>{b.status}</Badge>
-                <Link href="/rider/history">
-                  <Button variant="outline" size="sm">View</Button>
-                </Link>
-              </div>
-            ))}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-[var(--color-primary)]">Booking Wizard</h2>
+              <p className="mt-1 text-sm text-slate-600">Step {step} of 3</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={useMyLocationAsPickup} disabled={locating}>
+                <LocateFixed className="mr-2 size-4" />
+                {locating ? "Locating..." : "Use my location"}
+              </Button>
+              <Link href="/rider/history">
+                <Button variant="outline">History</Button>
+              </Link>
+            </div>
           </div>
-        </Card>
-      ) : null}
-
-      <Card>
-        <h2 className="text-lg font-bold text-[var(--color-primary)]">Booking Wizard</h2>
-        <p className="mb-4 text-sm text-slate-600">Step {step} of 3</p>
+          {locationMsg ? <p className="mt-2 text-sm text-slate-600">{locationMsg}</p> : null}
 
         {step === 1 ? (
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Pickup</label>
-              <PlacesAutocomplete value={pickup} onChange={(v) => setPickup(v)} placeholder="Enter pickup in Australia" />
+              <PlacesAutocomplete
+                value={pickup}
+                onChange={(v, place) => {
+                  setPickup(v);
+                  setPickupCoords(place?.lat != null && place?.lng != null ? { lat: place.lat, lng: place.lng } : null);
+                }}
+                placeholder="Enter pickup in Australia"
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Drop-off</label>
-              <PlacesAutocomplete value={dropoff} onChange={(v) => setDropoff(v)} placeholder="Enter destination in Australia" />
+              <PlacesAutocomplete
+                value={dropoff}
+                onChange={(v, place) => {
+                  setDropoff(v);
+                  setDropoffCoords(place?.lat != null && place?.lng != null ? { lat: place.lat, lng: place.lng } : null);
+                }}
+                placeholder="Enter destination in Australia"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <RoutePreview origin={pickupCoords} destination={dropoffCoords} />
             </div>
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm font-medium text-slate-700">Date & time</label>
@@ -178,38 +255,83 @@ function RiderDashboardContent() {
             Back
           </Button>
           {step < 3 ? (
-            <Button onClick={() => setStep((s) => s + 1)}>Next</Button>
+            <Button onClick={() => setStep((s) => s + 1)}>
+              Next
+              <Route className="ml-2 size-4" />
+            </Button>
           ) : (
             <Button onClick={createBooking} disabled={loading}>{loading ? "Creating..." : "Create Booking"}</Button>
           )}
         </div>
         {msg ? <p className="mt-3 text-sm text-slate-600">{msg}</p> : null}
-      </Card>
+        </Card>
 
-      <Card>
-        <h3 className="font-bold text-[var(--color-primary)]">Live Map</h3>
-        <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-          <div className="flex items-center gap-2 text-sm text-slate-700">
-            <CarFront className="size-4 text-[var(--color-primary)]" />
-            Driver is moving toward pickup location (placeholder map stream).
-          </div>
-        </div>
-      </Card>
+        <div className="space-y-4">
+          <Card>
+            <h3 className="font-bold text-[var(--color-primary)]">Recent bookings</h3>
+            <p className="mt-1 text-xs text-slate-500">Tap one to prefill pickup & drop-off.</p>
+            <div className="mt-3 space-y-2">
+              {recentBookings.length === 0 ? (
+                <p className="text-sm text-slate-600">No bookings yet.</p>
+              ) : (
+                recentBookings.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => applyRecentBooking(b)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">{b.pickup}</p>
+                        <p className="mt-1 truncate text-xs text-slate-600">{b.dropoff}</p>
+                      </div>
+                      <Badge tone={b.status === "cancelled" ? "danger" : b.status.toLowerCase().includes("completed") ? "certified" : "pending"}>
+                        {b.status}
+                      </Badge>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/rider/history">
+                <Button variant="outline">View full history</Button>
+              </Link>
+            </div>
+          </Card>
 
-      <Card>
-        <h3 className="font-bold text-[var(--color-primary)]">My Account Shortcuts</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/rider/history">
-            <Button>Travel History & Bills</Button>
-          </Link>
-          <Link href="/rider/profile">
-            <Button variant="outline">Profile, Cards & Preferences</Button>
-          </Link>
-          <Link href="/login">
-            <Button variant="outline">Login Settings</Button>
-          </Link>
+          <Card>
+            <h3 className="font-bold text-[var(--color-primary)]">Quick locations</h3>
+            <p className="mt-1 text-xs text-slate-500">One-tap fills to speed up booking.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDropoff("Monash Medical Centre")}>
+                <MapPin className="mr-2 size-4" />
+                Monash Medical Centre
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDropoff("Royal Melbourne Hospital")}>
+                <MapPin className="mr-2 size-4" />
+                Royal Melbourne Hospital
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDropoff("Dialysis Clinic")}>
+                <MapPin className="mr-2 size-4" />
+                Dialysis Clinic
+              </Button>
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="font-bold text-[var(--color-primary)]">Live map</h3>
+            <div className="mt-3">
+              <RoutePreview origin={pickupCoords} destination={dropoffCoords} />
+              <div className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                <CarFront className="size-4 text-[var(--color-primary)]" />
+                Route preview updates as you select locations.
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

@@ -23,16 +23,18 @@ type UserRow = {
 
 function AdminUsersContent() {
   const searchParams = useSearchParams();
-  const createParam = searchParams.get("create") as "rider" | "driver" | "agent" | null;
-  const [tab, setTab] = useState<"all" | "riders" | "drivers" | "agents">(
-    createParam && ["rider", "driver", "agent"].includes(createParam) ? (createParam + "s") as "riders" | "drivers" | "agents" : "all"
+  const createParam = searchParams.get("create") as "rider" | "driver" | "partner" | null;
+  const [tab, setTab] = useState<"all" | "riders" | "drivers" | "partners">(
+    createParam && ["rider", "driver", "partner"].includes(createParam) ? (createParam + "s") as "riders" | "drivers" | "partners" : "all"
   );
   const [users, setUsers] = useState<UserRow[]>([]);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [createEmail, setCreateEmail] = useState("");
   const [createPassword, setCreatePassword] = useState("");
-  const [createRole, setCreateRole] = useState<"rider" | "driver" | "agent" | "admin">(
-    createParam && ["rider", "driver", "agent", "admin"].includes(createParam) ? createParam : "rider"
+  const [createRole, setCreateRole] = useState<"rider" | "driver" | "partner" | "admin">(
+    createParam && ["rider", "driver", "partner", "admin"].includes(createParam) ? createParam : "rider"
   );
   const [createFullName, setCreateFullName] = useState("");
   const [createMsg, setCreateMsg] = useState("");
@@ -49,7 +51,7 @@ function AdminUsersContent() {
       all: "/admin/users",
       riders: "/admin/riders",
       drivers: "/admin/drivers",
-      agents: "/admin/agents",
+      partners: "/admin/partners",
     };
     setError("");
     apiJson<{ items: UserRow[] }>(endpoints[tab], undefined, token)
@@ -58,6 +60,19 @@ function AdminUsersContent() {
   }, [tab, session?.accessToken]);
 
   const activeCount = useMemo(() => users.filter((u) => u.is_active).length, [users]);
+  const filteredUsers = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return users.filter((user) => {
+      if (statusFilter === "active" && !user.is_active) return false;
+      if (statusFilter === "inactive" && user.is_active) return false;
+      if (!needle) return true;
+      const roleText = user.roles?.join(" ") ?? "";
+      return [user.email, user.full_name ?? "", user.org_name ?? "", roleText]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [users, search, statusFilter]);
 
   async function createUser() {
     if (!session?.accessToken) return;
@@ -94,7 +109,7 @@ function AdminUsersContent() {
       <Card className="bg-[var(--color-primary)] text-white">
         <h1 className="text-2xl font-bold">User Management</h1>
         <p className="mt-2 text-sm text-indigo-100">
-          Super admin creates all users. View riders, drivers, agents, and their info.
+          Super admin creates all users. View riders, drivers, partners, and their info.
         </p>
       </Card>
 
@@ -118,7 +133,7 @@ function AdminUsersContent() {
           <Select value={createRole} onChange={(e) => setCreateRole(e.target.value as typeof createRole)}>
             <option value="rider">Rider</option>
             <option value="driver">Driver</option>
-            <option value="agent">Agent</option>
+            <option value="partner">Partner</option>
             <option value="admin">Admin</option>
           </Select>
           <Input placeholder="Full name" value={createFullName} onChange={(e) => setCreateFullName(e.target.value)} />
@@ -131,11 +146,32 @@ function AdminUsersContent() {
 
       <Card>
         <div className="flex flex-wrap gap-2">
-          {(["all", "riders", "drivers", "agents"] as const).map((t) => (
+          {(["all", "riders", "drivers", "partners"] as const).map((t) => (
             <Button key={t} variant={tab === t ? "primary" : "outline"} onClick={() => setTab(t)}>
               {t === "all" ? "All Users" : t.charAt(0).toUpperCase() + t.slice(1)}
             </Button>
           ))}
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <Input
+            placeholder="Search by name, email, role, org"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
+            <option value="all">All statuses</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </Select>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("all");
+            }}
+          >
+            Clear Filters
+          </Button>
         </div>
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
         <div className="mt-3 overflow-x-auto">
@@ -149,7 +185,7 @@ function AdminUsersContent() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <tr key={user.id} className="border-b">
                   <td className="py-2 pr-3">
                     <p className="font-medium text-slate-900">{user.full_name || user.email.split("@")[0]}</p>

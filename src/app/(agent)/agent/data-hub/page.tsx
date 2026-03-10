@@ -1,6 +1,53 @@
-import { Button, Card, Input, Select, Textarea } from "@/components/ui/primitives";
+"use client";
 
-export default function AgentDataHubPage() {
+import { useEffect, useState } from "react";
+import { Button, Card, Input, Select, Textarea } from "@/components/ui/primitives";
+import { apiJson, getAuthSession } from "@/lib/api-client";
+
+export default function PartnerDataHubPage() {
+  const [exportType, setExportType] = useState("clients");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [itemsCount, setItemsCount] = useState<number | null>(null);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    apiJson<{ items: Array<unknown> }>("/partner/clients", undefined, session.accessToken)
+      .then((r) => setItemsCount(r.items.length))
+      .catch(() => setItemsCount(null));
+  }, []);
+
+  async function exportData() {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    try {
+      if (exportType === "clients") {
+        const data = await apiJson<{ items: Array<Record<string, unknown>> }>("/partner/clients", undefined, session.accessToken);
+        const blob = new Blob([JSON.stringify(data.items, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "partner-clients.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const data = await apiJson<{ items: Array<Record<string, unknown>> }>("/partner/bookings", undefined, session.accessToken);
+        const blob = new Blob([JSON.stringify(data.items, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "partner-bookings.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      setMsg("Export generated.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Export failed");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card className="border-none bg-gradient-to-r from-[#112161] to-[#2A85BD] text-white">
@@ -28,16 +75,15 @@ export default function AgentDataHubPage() {
         <Card>
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">Export Data</h2>
           <div className="mt-3 grid gap-3">
-            <Select>
-              <option>Export: Full Client Registry</option>
-              <option>Export: Trip History Pack</option>
-              <option>Export: Invoice & Claims</option>
+            <Select value={exportType} onChange={(e) => setExportType(e.target.value)}>
+              <option value="clients">Export: Full Client Registry</option>
+              <option value="bookings">Export: Trip History Pack</option>
             </Select>
             <div className="grid grid-cols-2 gap-2">
-              <Input type="date" />
-              <Input type="date" />
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
-            <Button>Generate Export File</Button>
+            <Button onClick={exportData}>Generate Export File</Button>
           </div>
         </Card>
       </div>
@@ -45,10 +91,11 @@ export default function AgentDataHubPage() {
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Data Governance</h2>
         <div className="mt-3 space-y-2 text-sm">
-          <div className="rounded-xl border border-slate-200 p-3">Last successful import: 2026-02-16 09:42 AM</div>
-          <div className="rounded-xl border border-slate-200 p-3">Failed rows in latest file: 3 (download error report)</div>
+          <div className="rounded-xl border border-slate-200 p-3">Known records in registry: {itemsCount ?? "—"}</div>
+          <div className="rounded-xl border border-slate-200 p-3">Date filter applied: {from || "N/A"} to {to || "N/A"}</div>
           <div className="rounded-xl border border-slate-200 p-3">PII access scope: Organization Admin + Compliance Officer</div>
         </div>
+        {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
       </Card>
     </div>
   );

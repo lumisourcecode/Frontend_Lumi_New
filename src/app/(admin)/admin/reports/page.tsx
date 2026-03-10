@@ -18,7 +18,7 @@ const reportLibrary = [
   { name: "Operations Executive Summary", frequency: "Daily", owner: "Operations", includes: "Trips, delays, incidents, driver utilization", link: "/admin/dashboard" },
   { name: "Billing + Receivables Report", frequency: "Daily", owner: "Finance", includes: "Invoices, aging, payment success rate", link: "/admin/billing" },
   { name: "Compliance Control Report", frequency: "Weekly", owner: "Compliance", includes: "Documents, training, audit exceptions", link: "/admin/compliance" },
-  { name: "Agent Portfolio Performance", frequency: "Weekly", owner: "Customer Success", includes: "Clients per agent, SLA, retention risk", link: "/admin/users?tab=agents" },
+  { name: "Partner Portfolio Performance", frequency: "Weekly", owner: "Customer Success", includes: "Clients per partner, SLA, retention risk", link: "/admin/users?create=partner" },
 ];
 
 export default function AdminReportsPage() {
@@ -70,7 +70,7 @@ export default function AdminReportsPage() {
             <option>Type: Operations Summary</option>
             <option>Type: Billing & Receivables</option>
             <option>Type: Compliance</option>
-            <option>Type: Agent Performance</option>
+            <option>Type: Partner Performance</option>
           </Select>
           <Input type="date" />
           <Input type="date" />

@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 const PORTAL_LABELS: Record<string, string> = {
   rider: "Rider",
   driver: "Driver",
-  agent: "Partner",
+  partner: "Partner",
   admin: "Admin",
 };
 
@@ -59,7 +59,7 @@ function ResetPasswordForm() {
       });
       setAuthSession({ accessToken: data.accessToken, user: data.user });
       if (portal === "admin") router.push("/admin/dashboard");
-      else if (portal === "agent") router.push("/agent/dashboard");
+      else if (portal === "partner") router.push("/partner/dashboard");
       else if (portal === "driver") router.push("/driver/onboard");
       else router.push("/rider/dashboard");
       router.refresh();

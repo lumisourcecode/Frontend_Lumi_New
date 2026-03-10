@@ -44,11 +44,11 @@ export default function LoginPage() {
           <div className="rounded-xl bg-slate-100 p-3 w-fit">
             <Users className="size-8 text-[var(--color-primary)]" />
           </div>
-          <h2 className="mt-4 text-lg font-bold text-[var(--color-primary)]">Partner / Agent</h2>
+          <h2 className="mt-4 text-lg font-bold text-[var(--color-primary)]">Partner</h2>
           <p className="mt-1 flex-1 text-sm text-slate-600">
             Client bookings, roster, billing.
           </p>
-          <Link href="/agent/login" className="mt-5">
+          <Link href="/partner/login" className="mt-5">
             <Button className="w-full">Partner Login</Button>
           </Link>
         </Card>

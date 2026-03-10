@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge, Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
@@ -9,6 +10,8 @@ type Trip = {
   state: string;
   pickup: string;
   dropoff: string;
+  rider_id?: string;
+  driver_id?: string;
   rider_name?: string;
   driver_name?: string;
   created_at: string;
@@ -122,8 +125,24 @@ export default function AdminTripsHistoryPage() {
               {filteredTrips.map((trip) => (
                 <tr key={trip.id} className="border-b">
                   <td className="py-2 pr-3 font-medium text-slate-900">{String(trip.id).slice(0, 8)}</td>
-                  <td className="py-2 pr-3">{trip.rider_name || "-"}</td>
-                  <td className="py-2 pr-3">{trip.driver_name || "Unassigned"}</td>
+                  <td className="py-2 pr-3">
+                    {trip.rider_id ? (
+                      <Link href={`/admin/users/${trip.rider_id}`} className="text-[var(--color-primary)] hover:underline">
+                        {trip.rider_name || "-"}
+                      </Link>
+                    ) : (
+                      trip.rider_name || "-"
+                    )}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {trip.driver_id ? (
+                      <Link href={`/admin/users/${trip.driver_id}`} className="text-[var(--color-primary)] hover:underline">
+                        {trip.driver_name || "Unassigned"}
+                      </Link>
+                    ) : (
+                      trip.driver_name || "Unassigned"
+                    )}
+                  </td>
                   <td className="py-2 pr-3 text-xs text-slate-600">{trip.pickup} → {trip.dropoff}</td>
                   <td className="py-2 pr-3">{new Date(trip.created_at).toLocaleDateString()}</td>
                   <td className="py-2 pr-3">

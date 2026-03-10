@@ -9,7 +9,7 @@ import { apiJson } from "@/lib/api-client";
 const PORTAL_LABELS: Record<string, string> = {
   rider: "Rider",
   driver: "Driver",
-  agent: "Partner",
+  partner: "Partner",
   admin: "Admin",
 };
 

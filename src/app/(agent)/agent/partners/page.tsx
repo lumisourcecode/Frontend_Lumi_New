@@ -12,7 +12,7 @@ const monthlyCommissions = [
   { month: "Mar", amount: 3700, billed: false },
 ];
 
-export default function AgentPartnersPage() {
+export default function PartnerPartnersPage() {
   const [uploaded, setUploaded] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ export default function AgentPartnersPage() {
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<{ items: Client[] }>("/agent/clients", undefined, session.accessToken)
+    apiJson<{ items: Client[] }>("/partner/clients", undefined, session.accessToken)
       .then((r) => setClients(r.items))
       .catch(() => {})
       .finally(() => setLoading(false));

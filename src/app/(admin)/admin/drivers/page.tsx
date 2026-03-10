@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Badge, Button, Card } from "@/components/ui/primitives";
+import { Badge, Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
 type Driver = { id: string; email: string; full_name?: string; phone?: string; vehicle_rego?: string; verification_status?: string; is_active?: boolean };
@@ -10,6 +10,8 @@ type Driver = { id: string; email: string; full_name?: string; phone?: string; v
 export default function AdminDriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -21,6 +23,12 @@ export default function AdminDriversPage() {
   }, []);
 
   const approvedCount = drivers.filter((d) => d.verification_status === "Approved").length;
+  const filtered = drivers.filter((d) => {
+    const s = search.toLowerCase();
+    const matchSearch = !s || (d.full_name || d.email).toLowerCase().includes(s) || (d.email || "").toLowerCase().includes(s) || (d.vehicle_rego || "").toLowerCase().includes(s);
+    const matchStatus = status === "all" || (d.verification_status || "Pending") === status;
+    return matchSearch && matchStatus;
+  });
 
   return (
     <div className="space-y-4">
@@ -49,10 +57,19 @@ export default function AdminDriversPage() {
 
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Driver Directory</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <Input placeholder="Search driver" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="all">All verification statuses</option>
+            <option value="Approved">Approved</option>
+            <option value="Pending">Pending</option>
+            <option value="Rejected">Rejected</option>
+          </Select>
+        </div>
         <div className="mt-3 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
-          ) : drivers.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <p className="py-4 text-sm text-slate-500">
               No drivers yet.{" "}
               <Link href="/admin/users?create=driver" className="font-medium text-[var(--color-primary)] underline">
@@ -75,10 +92,18 @@ export default function AdminDriversPage() {
                 </tr>
               </thead>
               <tbody>
-                {drivers.map((d) => (
+                {filtered.map((d) => (
                   <tr key={d.id} className="border-b">
-                    <td className="py-2 pr-3 font-medium text-slate-900">{d.full_name || d.email}</td>
-                    <td className="py-2 pr-3">{d.email}</td>
+                    <td className="py-2 pr-3 font-medium text-slate-900">
+                      <Link href={`/admin/users/${d.id}`} className="text-[var(--color-primary)] hover:underline">
+                        {d.full_name || d.email}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Link href={`/admin/users/${d.id}`} className="text-[var(--color-primary)] hover:underline">
+                        {d.email}
+                      </Link>
+                    </td>
                     <td className="py-2 pr-3">{d.vehicle_rego || "-"}</td>
                     <td className="py-2 pr-3">
                       <Badge tone={d.verification_status === "Approved" ? "certified" : d.verification_status === "Rejected" ? "danger" : "pending"}>

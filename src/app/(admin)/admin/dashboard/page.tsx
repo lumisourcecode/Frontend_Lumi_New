@@ -91,7 +91,7 @@ export default function AdminDashboardPage() {
           <div>
             <h1 className="text-2xl font-bold">Enterprise Admin Workspace</h1>
             <p className="mt-2 max-w-3xl text-sm text-indigo-100">
-              Unified control center for dispatch, billing, user access, driver enrollment, agent
+              Unified control center for dispatch, billing, user access, driver enrollment, partner
               operations, compliance, and reporting.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">

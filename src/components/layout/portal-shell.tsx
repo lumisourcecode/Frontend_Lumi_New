@@ -50,10 +50,10 @@ export function PortalShell({ role, title, children }: PortalShellProps) {
   return (
     <div className="min-h-screen bg-[var(--color-bg)] text-slate-900">
       <div className="mx-auto flex max-w-[1700px] flex-col md:flex-row">
-        <aside className="w-full shrink-0 border-b border-white/15 bg-[var(--color-primary)] p-5 text-white shadow-xl md:sticky md:top-0 md:h-screen md:w-72 md:border-r md:border-b-0 md:border-slate-200/10 md:shadow-none">
+        <aside className="w-full shrink-0 border-b border-white/15 bg-[var(--color-primary)] p-5 text-white shadow-xl md:sticky md:top-0 md:h-screen md:w-72 md:overflow-y-auto md:border-r md:border-b-0 md:border-slate-200/10 md:shadow-none">
           <Logo href="/" variant="light" className="h-9 w-auto" />
           <p className="mb-5 mt-1 text-xs font-medium uppercase tracking-wider text-slate-300">{title}</p>
-          <nav className="grid gap-1">
+          <nav className="grid gap-1 pb-6">
             {navItems.map((item) => {
               const active = pathname === item.href;
               return (

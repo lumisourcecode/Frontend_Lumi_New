@@ -7,13 +7,13 @@ import { apiJson, getAuthSession } from "@/lib/api-client";
 
 type Client = { id: string; email: string; full_name?: string; phone?: string; ndis_id?: string; bookings_count?: string };
 
-export default function AgentRosterPage() {
+export default function PartnerRosterPage() {
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<{ items: Client[] }>("/agent/clients", undefined, session.accessToken)
+    apiJson<{ items: Client[] }>("/partner/clients", undefined, session.accessToken)
       .then((r) => setClients(r.items))
       .catch(() => {});
   }, []);
@@ -63,7 +63,7 @@ export default function AgentRosterPage() {
               <div key={c.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
                 <span className="font-medium">{c.full_name || c.email}</span>
                 <span className="text-slate-500">{c.bookings_count ?? "0"} bookings</span>
-                <Link href="/agent/bookings"><Button variant="outline" size="sm">Book</Button></Link>
+                <Link href="/partner/bookings"><Button variant="outline" size="sm">Book</Button></Link>
               </div>
             ))
           )}

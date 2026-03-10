@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Badge, Card } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
@@ -44,7 +45,7 @@ export default function AdminActivityPage() {
           {items.map((a) => (
             <div key={a.id} className="flex flex-wrap items-start gap-2 rounded-xl border border-slate-200 p-3 text-sm">
               <Badge tone="default">{a.action}</Badge>
-              <span className="text-slate-600">{a.email || a.user_id}</span>
+              <Link href={`/admin/users/${a.user_id}`} className="text-[var(--color-primary)] hover:underline">{a.email || a.user_id}</Link>
               <span className="text-slate-500">{a.entity_type} {a.entity_id}</span>
               <span className="text-xs text-slate-400">{new Date(a.created_at).toLocaleString()}</span>
               {a.payload && Object.keys(a.payload).length > 0 && (

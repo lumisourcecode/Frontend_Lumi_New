@@ -18,7 +18,7 @@ type Notification = {
 const NOTIFICATION_ENDPOINTS: Record<RoleType, string> = {
   rider: "/rider/notifications",
   driver: "/driver/notifications",
-  agent: "/agent/notifications",
+  partner: "/partner/notifications",
   admin: "/admin/notifications",
 };
 
@@ -50,7 +50,7 @@ function getNotificationLink(role: RoleType, n: Notification): string | null {
   const tripId = p?.tripId ?? p?.trip_id;
   if (role === "rider" && bookingId) return `/rider/history`;
   if (role === "driver" && (tripId || bookingId)) return `/driver/manifest`;
-  if (role === "agent" && bookingId) return `/agent/bookings`;
+  if (role === "partner" && bookingId) return `/partner/bookings`;
   return null;
 }
 
@@ -101,7 +101,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   async function markRead(id: string) {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    const base = role === "rider" ? "/rider" : role === "agent" ? "/agent" : "/driver";
+    const base = role === "rider" ? "/rider" : role === "partner" ? "/partner" : "/driver";
     try {
       await apiJson(`${base}/notifications/${id}/read`, { method: "PATCH" }, session.accessToken);
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));

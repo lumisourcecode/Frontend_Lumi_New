@@ -8,7 +8,7 @@ import { LOGIN_PATHS, type RoleType } from "@/lib/navigation";
 const DASHBOARD_PATHS: Record<RoleType, string> = {
   rider: "/rider/dashboard",
   driver: "/driver/onboard",
-  agent: "/agent/dashboard",
+  partner: "/partner/dashboard",
   admin: "/admin/dashboard",
 };
 

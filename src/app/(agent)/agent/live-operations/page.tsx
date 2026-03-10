@@ -3,10 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
+import { haversineKm } from "@/lib/distance";
 
-type Booking = { id: string; pickup: string; dropoff: string; scheduled_at: string; status: string; rider_name?: string; trip_id?: string; trip_state?: string };
+type Booking = {
+  id: string;
+  pickup: string;
+  dropoff: string;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
+  scheduled_at: string;
+  status: string;
+  rider_name?: string;
+  trip_id?: string;
+  trip_state?: string;
+  driver_name?: string;
+  driver_email?: string;
+};
 
-export default function AgentLiveOperationsPage() {
+export default function PartnerLiveOperationsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -35,7 +51,7 @@ export default function AgentLiveOperationsPage() {
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<{ items: Booking[] }>("/agent/bookings", undefined, session.accessToken)
+    apiJson<{ items: Booking[] }>("/partner/bookings", undefined, session.accessToken)
       .then((r) => setBookings(r.items))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -72,6 +88,14 @@ export default function AgentLiveOperationsPage() {
               <div key={b.id} className="rounded-xl border border-slate-200 p-3 text-sm min-w-[200px]">
                 <p className="font-medium">{b.rider_name || "Rider"}</p>
                 <p className="text-slate-600">{b.pickup} → {b.dropoff}</p>
+                <p className="text-xs text-slate-500">
+                  Driver: <strong>{b.driver_name || b.driver_email || "Unassigned"}</strong>
+                  {" • "}
+                  Distance:{" "}
+                  {b.pickup_lat != null && b.pickup_lng != null && b.dropoff_lat != null && b.dropoff_lng != null
+                    ? `${haversineKm(b.pickup_lat, b.pickup_lng, b.dropoff_lat, b.dropoff_lng).toFixed(1)} km`
+                    : "—"}
+                </p>
                 <p className="text-xs text-slate-500">{new Date(b.scheduled_at).toLocaleString()}</p>
                 <Badge tone={b.trip_state === "Completed" ? "certified" : "pending"} className="mt-2">
                   {b.trip_state || b.status}

@@ -7,13 +7,13 @@ import { apiJson, getAuthSession } from "@/lib/api-client";
 
 type Stats = { clientsEnrolled: number; ridesToday: number; inTransit: number; pendingApprovals: number };
 
-export default function AgentDashboardPage() {
+export default function PartnerDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<Stats>("/agent/stats", undefined, session.accessToken)
+    apiJson<Stats>("/partner/stats", undefined, session.accessToken)
       .then(setStats)
       .catch(() => {});
   }, []);
@@ -41,7 +41,7 @@ export default function AgentDashboardPage() {
             Live map placeholder: facility pickups, active trips, and ETA monitoring.
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href="/agent/bookings">
+            <Link href="/partner/bookings">
               <Button>Book New Ride</Button>
             </Link>
             <Button variant="outline">Plan Weekly Schedule</Button>

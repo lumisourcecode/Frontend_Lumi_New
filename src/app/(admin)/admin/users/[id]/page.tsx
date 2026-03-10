@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Badge, Button, Card, Input } from "@/components/ui/primitives";
+import { useEffect, useMemo, useState } from "react";
+import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 import { PasswordStrength, getPasswordStrength } from "@/components/auth/password-strength";
 
@@ -11,17 +11,34 @@ type UserDetail = {
   user: { id: string; email: string; is_active: boolean; is_super_admin?: boolean; roles: string[]; created_at: string };
   riderProfile: { full_name: string; phone: string; ndis_id: string } | null;
   driverProfile: { full_name: string; phone: string; vehicle_rego: string; verification_status: string } | null;
-  agentProfile: { org_name: string; contact_name: string } | null;
+  partnerProfile: { org_name: string; contact_name: string } | null;
   adminProfile: { display_name: string } | null;
   bookingsCount: number;
+  partnerClientsCount: number;
 };
+
+type AdminDocument = { id: string; doc_type: string; status: string; expiry?: string; admin_notes?: string };
+type PartnerLite = { id: string; email: string; contact_name?: string; org_name?: string };
+type RiderLite = { id: string; email: string; full_name?: string };
 
 export default function AdminUserDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [data, setData] = useState<UserDetail | null>(null);
+  const [tab, setTab] = useState<"overview" | "documents" | "history" | "activity" | "relations">("overview");
+  const [documents, setDocuments] = useState<AdminDocument[]>([]);
+  const [history, setHistory] = useState<{ bookings: Array<Record<string, unknown>>; trips: Array<Record<string, unknown>> }>({ bookings: [], trips: [] });
+  const [activity, setActivity] = useState<Array<Record<string, unknown>>>([]);
+  const [relations, setRelations] = useState<{ partnerClients: Array<Record<string, unknown>>; riderPartners: Array<Record<string, unknown>> }>({ partnerClients: [], riderPartners: [] });
+  const [partners, setPartners] = useState<PartnerLite[]>([]);
+  const [riders, setRiders] = useState<RiderLite[]>([]);
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [selectedRiderId, setSelectedRiderId] = useState("");
+  const [relationNotes, setRelationNotes] = useState("");
+  const [historyType, setHistoryType] = useState<"all" | "booking" | "trip" | "activity" | "document" | "relation">("all");
+  const [docDrafts, setDocDrafts] = useState<Record<string, { status: string; admin_notes: string }>>({});
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState<"rider" | "driver" | "agent" | "admin" | false>(false);
+  const [editing, setEditing] = useState<"rider" | "driver" | "partner" | "admin" | false>(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [form, setForm] = useState({
@@ -36,33 +53,102 @@ export default function AdminUserDetailPage() {
   const [changePwOpen, setChangePwOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [sendEmail, setSendEmail] = useState(true);
-
   const session = getAuthSession();
+
+  async function reloadMain() {
+    if (!session?.accessToken) return;
+    const d = await apiJson<UserDetail>(`/admin/users/${id}`, undefined, session.accessToken);
+    setData(d);
+    const r = d.riderProfile;
+    const dr = d.driverProfile;
+    const p = d.partnerProfile;
+    const ad = d.adminProfile;
+    setForm({
+      fullName: r?.full_name || dr?.full_name || p?.contact_name || ad?.display_name || "",
+      phone: r?.phone || dr?.phone || "",
+      ndisId: r?.ndis_id || "",
+      vehicleRego: dr?.vehicle_rego || "",
+      orgName: p?.org_name || "",
+      contactName: p?.contact_name || "",
+      displayName: ad?.display_name || "",
+    });
+  }
 
   useEffect(() => {
     if (!session?.accessToken) {
       setError("Please login as admin.");
       return;
     }
-    apiJson<UserDetail>(`/admin/users/${id}`, undefined, session.accessToken)
-      .then((d) => {
-        setData(d);
-        const r = d.riderProfile;
-        const dr = d.driverProfile;
-        const a = d.agentProfile;
-        const ad = d.adminProfile;
-        setForm({
-          fullName: r?.full_name || dr?.full_name || a?.contact_name || ad?.display_name || "",
-          phone: r?.phone || dr?.phone || "",
-          ndisId: r?.ndis_id || "",
-          vehicleRego: dr?.vehicle_rego || "",
-          orgName: a?.org_name || "",
-          contactName: a?.contact_name || "",
-          displayName: ad?.display_name || "",
-        });
-      })
+    reloadMain()
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
   }, [id, session?.accessToken]);
+
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    if (tab === "documents") {
+      apiJson<{ items: Array<{ id: string; doc_type: string; status: string; expiry?: string }> }>(
+        `/admin/users/${id}/documents`,
+        undefined,
+        session.accessToken,
+      ).then((r) => {
+        const items = (r.items as AdminDocument[]) ?? [];
+        setDocuments(items);
+        setDocDrafts(
+          Object.fromEntries(
+            items.map((doc) => [doc.id, { status: doc.status, admin_notes: doc.admin_notes ?? "" }]),
+          ),
+        );
+      }).catch(() => {
+        setDocuments([]);
+        setDocDrafts({});
+      });
+    }
+    if (tab === "history") {
+      Promise.all([
+        apiJson<{ bookings: Array<Record<string, unknown>>; trips: Array<Record<string, unknown>> }>(
+          `/admin/users/${id}/history`,
+          undefined,
+          session.accessToken,
+        ),
+        apiJson<{ items: AdminDocument[] }>(`/admin/users/${id}/documents`, undefined, session.accessToken),
+        apiJson<{ items: Array<Record<string, unknown>> }>(`/admin/users/${id}/activity`, undefined, session.accessToken),
+        apiJson<{ partnerClients: Array<Record<string, unknown>>; riderPartners: Array<Record<string, unknown>> }>(
+          `/admin/users/${id}/relationships`,
+          undefined,
+          session.accessToken,
+        ),
+      ])
+        .then(([h, d, a, r]) => {
+          setHistory(h);
+          setDocuments(d.items ?? []);
+          setActivity(a.items ?? []);
+          setRelations(r);
+        })
+        .catch(() => {
+          setHistory({ bookings: [], trips: [] });
+        });
+    }
+    if (tab === "activity") {
+      apiJson<{ items: Array<Record<string, unknown>> }>(
+        `/admin/users/${id}/activity`,
+        undefined,
+        session.accessToken,
+      ).then((r) => setActivity(r.items)).catch(() => setActivity([]));
+    }
+    if (tab === "relations") {
+      apiJson<{ partnerClients: Array<Record<string, unknown>>; riderPartners: Array<Record<string, unknown>> }>(
+        `/admin/users/${id}/relationships`,
+        undefined,
+        session.accessToken,
+      ).then(setRelations).catch(() => setRelations({ partnerClients: [], riderPartners: [] }));
+      apiJson<{ items: PartnerLite[] }>(`/admin/partners`, undefined, session.accessToken)
+        .then((r) => setPartners(r.items))
+        .catch(() => setPartners([]));
+      apiJson<{ items: RiderLite[] }>(`/admin/riders`, undefined, session.accessToken)
+        .then((r) => setRiders(r.items))
+        .catch(() => setRiders([]));
+    }
+  }, [tab, id, session?.accessToken]);
 
   async function saveProfile() {
     if (!session?.accessToken) return;
@@ -83,7 +169,7 @@ export default function AdminUserDetailPage() {
       }, session.accessToken);
       setMsg("Profile saved.");
       setEditing(false as const);
-      apiJson<UserDetail>(`/admin/users/${id}`, undefined, session.accessToken).then(setData);
+      await reloadMain();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -132,10 +218,144 @@ export default function AdminUserDetailPage() {
     }
   }
 
+  async function verifyDocument(docId: string) {
+    if (!session?.accessToken) return;
+    const draft = docDrafts[docId];
+    if (!draft?.status) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      await apiJson(`/admin/documents/${docId}/verify`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: draft.status,
+          adminNotes: draft.admin_notes || undefined,
+        }),
+      }, session.accessToken);
+      setMsg("Document updated.");
+      const r = await apiJson<{ items: AdminDocument[] }>(`/admin/users/${id}/documents`, undefined, session.accessToken);
+      const items = (r.items ?? []) as AdminDocument[];
+      setDocuments(items);
+      setDocDrafts(Object.fromEntries(items.map((doc) => [doc.id, { status: doc.status, admin_notes: doc.admin_notes ?? "" }])));
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to update document");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addRelation() {
+    if (!session?.accessToken || !data) return;
+    const isPartner = data.user.roles.includes("partner");
+    const isRider = data.user.roles.includes("rider");
+    const partnerId = isPartner ? id : selectedPartnerId;
+    const riderId = isPartner ? selectedRiderId : isRider ? id : "";
+    if (!partnerId || !riderId) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      await apiJson(`/admin/partners/${partnerId}/clients`, {
+        method: "POST",
+        body: JSON.stringify({ riderId, notes: relationNotes || undefined }),
+      }, session.accessToken);
+      const rel = await apiJson<{ partnerClients: Array<Record<string, unknown>>; riderPartners: Array<Record<string, unknown>> }>(
+        `/admin/users/${id}/relationships`,
+        undefined,
+        session.accessToken,
+      );
+      setRelations(rel);
+      await reloadMain();
+      setRelationNotes("");
+      setSelectedRiderId("");
+      setSelectedPartnerId("");
+      setMsg("Relationship added.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to add relation");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeRelation(partnerId: string, riderId: string) {
+    if (!session?.accessToken) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      await apiJson(`/admin/partners/${partnerId}/clients/${riderId}`, { method: "DELETE" }, session.accessToken);
+      const rel = await apiJson<{ partnerClients: Array<Record<string, unknown>>; riderPartners: Array<Record<string, unknown>> }>(
+        `/admin/users/${id}/relationships`,
+        undefined,
+        session.accessToken,
+      );
+      setRelations(rel);
+      await reloadMain();
+      setMsg("Relationship removed.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to remove relation");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const timeline = useMemo(() => {
+    const rows: Array<{ at: string; type: "booking" | "trip" | "activity" | "document" | "relation"; label: string; detail: string }> = [];
+    history.bookings.forEach((row) => {
+      rows.push({
+        at: String(row.created_at ?? row.scheduled_at ?? ""),
+        type: "booking",
+        label: `Booking ${String(row.status ?? "—")}`,
+        detail: `${String(row.pickup ?? "—")} -> ${String(row.dropoff ?? "—")}`,
+      });
+    });
+    history.trips.forEach((row) => {
+      rows.push({
+        at: String(row.created_at ?? row.assigned_at ?? ""),
+        type: "trip",
+        label: `Trip ${String(row.state ?? "—")}`,
+        detail: `Booking ${String(row.booking_id ?? "—")}`,
+      });
+    });
+    activity.forEach((row) => {
+      rows.push({
+        at: String(row.created_at ?? ""),
+        type: "activity",
+        label: String(row.action ?? "Activity"),
+        detail: `${String(row.entity_type ?? "")} ${String(row.entity_id ?? "")}`.trim(),
+      });
+    });
+    documents.forEach((doc) => {
+      rows.push({
+        at: String(doc.expiry ?? ""),
+        type: "document",
+        label: `Document ${doc.doc_type}`,
+        detail: `Status: ${doc.status}`,
+      });
+    });
+    relations.partnerClients.forEach((row) => {
+      rows.push({
+        at: String(row.created_at ?? ""),
+        type: "relation",
+        label: "Partner -> Client link",
+        detail: String(row.full_name ?? row.email ?? row.id ?? "Client"),
+      });
+    });
+    relations.riderPartners.forEach((row) => {
+      rows.push({
+        at: String(row.created_at ?? ""),
+        type: "relation",
+        label: "Rider -> Partner link",
+        detail: String(row.org_name ?? row.contact_name ?? row.email ?? row.id ?? "Partner"),
+      });
+    });
+    return rows
+      .filter((item) => (historyType === "all" ? true : item.type === historyType))
+      .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime());
+  }, [activity, documents, history.bookings, history.trips, historyType, relations.partnerClients, relations.riderPartners]);
+
   if (error) return <Card><p className="text-red-600">{error}</p></Card>;
   if (!data) return <Card><p>Loading...</p></Card>;
 
-  const { user, riderProfile, driverProfile, agentProfile, adminProfile, bookingsCount } = data;
+  const { user, riderProfile, driverProfile, partnerProfile, adminProfile, bookingsCount, partnerClientsCount } = data;
 
   return (
     <div className="space-y-4">
@@ -194,6 +414,214 @@ export default function AdminUserDetailPage() {
           )}
         </div>
       </Card>
+      <Card>
+        <div className="flex flex-wrap gap-2">
+          {(["overview", "relations", "documents", "history", "activity"] as const).map((t) => (
+            <Button key={t} variant={tab === t ? "primary" : "outline"} onClick={() => setTab(t)}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </Button>
+          ))}
+        </div>
+        {msg ? <p className="mt-3 text-sm text-slate-600">{msg}</p> : null}
+      </Card>
+      {tab === "documents" && (
+        <Card>
+          <h2 className="font-bold text-[var(--color-primary)]">Documents</h2>
+          {documents.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No documents found for this user.</p>
+          ) : (
+            <div className="mt-2 space-y-2 text-sm">
+              {documents.map((doc) => (
+                <div key={doc.id} className="rounded-lg border border-slate-200 p-3">
+                  <p><strong>{doc.doc_type}</strong></p>
+                  <div className="mt-2 grid gap-2 md:grid-cols-3">
+                    <Select
+                      value={docDrafts[doc.id]?.status ?? doc.status}
+                      onChange={(e) =>
+                        setDocDrafts((prev) => ({
+                          ...prev,
+                          [doc.id]: {
+                            status: e.target.value,
+                            admin_notes: prev[doc.id]?.admin_notes ?? doc.admin_notes ?? "",
+                          },
+                        }))
+                      }
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Needs More Information">Needs More Information</option>
+                      <option value="Approved">Approved</option>
+                      <option value="Rejected">Rejected</option>
+                    </Select>
+                    <Textarea
+                      placeholder="Admin notes"
+                      value={docDrafts[doc.id]?.admin_notes ?? doc.admin_notes ?? ""}
+                      onChange={(e) =>
+                        setDocDrafts((prev) => ({
+                          ...prev,
+                          [doc.id]: {
+                            status: prev[doc.id]?.status ?? doc.status,
+                            admin_notes: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                    <Button disabled={saving} onClick={() => verifyDocument(doc.id)}>Save Verification</Button>
+                  </div>
+                  <p>Expiry: {doc.expiry ? new Date(doc.expiry).toLocaleDateString() : "—"}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+      {tab === "history" && (
+        <Card>
+          <h2 className="font-bold text-[var(--color-primary)]">Unified Timeline</h2>
+          <p className="mt-2 text-sm text-slate-600">Bookings: {history.bookings.length} • Trips: {history.trips.length} • Activity: {activity.length}</p>
+          <div className="mt-3 grid max-w-sm gap-2">
+            <Select value={historyType} onChange={(e) => setHistoryType(e.target.value as typeof historyType)}>
+              <option value="all">All events</option>
+              <option value="booking">Bookings</option>
+              <option value="trip">Trips</option>
+              <option value="activity">Activity</option>
+              <option value="document">Documents</option>
+              <option value="relation">Relationships</option>
+            </Select>
+          </div>
+          <div className="mt-3 space-y-2">
+            {timeline.slice(0, 120).map((event, idx) => (
+              <div key={`t-${idx}`} className="rounded-lg border border-slate-200 p-3 text-sm">
+                <p className="font-medium">{event.label}</p>
+                <p>{event.detail}</p>
+                <p className="text-xs text-slate-500">{event.at ? new Date(event.at).toLocaleString() : "—"}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {tab === "activity" && (
+        <Card>
+          <h2 className="font-bold text-[var(--color-primary)]">Activity</h2>
+          {activity.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No activity records for this user.</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {activity.slice(0, 40).map((row, idx) => (
+                <div key={`a-${idx}`} className="rounded-lg border border-slate-200 p-3 text-sm">
+                  <p><strong>{String(row.action ?? "action")}</strong> • {String(row.entity_type ?? "entity")}</p>
+                  <p className="text-xs text-slate-500">{String(row.created_at ?? "")}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+      {tab === "relations" && (
+        <Card>
+          <h2 className="font-bold text-[var(--color-primary)]">Relationships</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Partner clients: {relations.partnerClients.length} • Rider partners: {relations.riderPartners.length}
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            {user.roles.includes("partner") ? (
+              <>
+                <Select value={selectedRiderId} onChange={(e) => setSelectedRiderId(e.target.value)}>
+                  <option value="">Assign rider to this partner</option>
+                  {riders
+                    .filter((r) => !relations.partnerClients.some((pc) => String(pc.id) === r.id))
+                    .map((rider) => (
+                      <option key={rider.id} value={rider.id}>{rider.full_name || rider.email}</option>
+                    ))}
+                </Select>
+                <Textarea
+                  placeholder="Relationship notes"
+                  value={relationNotes}
+                  onChange={(e) => setRelationNotes(e.target.value)}
+                />
+              </>
+            ) : user.roles.includes("rider") ? (
+              <>
+                <Select value={selectedPartnerId} onChange={(e) => setSelectedPartnerId(e.target.value)}>
+                  <option value="">Assign partner to this rider</option>
+                  {partners
+                    .filter((p) => !relations.riderPartners.some((rp) => String(rp.id) === p.id))
+                    .map((partner) => (
+                      <option key={partner.id} value={partner.id}>
+                        {partner.contact_name || partner.org_name || partner.email}
+                      </option>
+                    ))}
+                </Select>
+                <Textarea
+                  placeholder="Relationship notes"
+                  value={relationNotes}
+                  onChange={(e) => setRelationNotes(e.target.value)}
+                />
+              </>
+            ) : (
+              <p className="text-sm text-slate-500 md:col-span-3">Relation management is available for partner and rider profiles.</p>
+            )}
+            <Button
+              disabled={saving || (!selectedRiderId && !selectedPartnerId)}
+              onClick={addRelation}
+            >
+              Add Relationship
+            </Button>
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700">Clients managed by this partner</h3>
+              <div className="mt-2 space-y-2">
+                {relations.partnerClients.slice(0, 30).map((row, idx) => (
+                  <div key={`pc-${idx}`} className="rounded-lg border border-slate-200 p-2 text-sm">
+                    <p>
+                      <Link href={`/admin/users/${String(row.id)}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                        {String(row.full_name ?? row.email ?? row.id ?? "Client")}
+                      </Link>
+                    </p>
+                    {user.roles.includes("partner") && (
+                      <Button
+                        variant="outline"
+                        className="mt-2"
+                        disabled={saving}
+                        onClick={() => removeRelation(id, String(row.id))}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700">Partners linked to this rider</h3>
+              <div className="mt-2 space-y-2">
+                {relations.riderPartners.slice(0, 30).map((row, idx) => (
+                  <div key={`rp-${idx}`} className="rounded-lg border border-slate-200 p-2 text-sm">
+                    <p>
+                      <Link href={`/admin/users/${String(row.id)}`} className="font-medium text-[var(--color-primary)] hover:underline">
+                        {String(row.org_name ?? row.contact_name ?? row.email ?? row.id ?? "Partner")}
+                      </Link>
+                    </p>
+                    {user.roles.includes("rider") && (
+                      <Button
+                        variant="outline"
+                        className="mt-2"
+                        disabled={saving}
+                        onClick={() => removeRelation(String(row.id), id)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+      {tab !== "overview" ? null : (
+        <>
       {riderProfile && (
         <Card>
           <h2 className="font-bold text-[var(--color-primary)]">Rider Profile</h2>
@@ -244,13 +672,14 @@ export default function AdminUserDetailPage() {
           )}
         </Card>
       )}
-      {agentProfile && (
+      {partnerProfile && (
         <Card>
-          <h2 className="font-bold text-[var(--color-primary)]">Agent Profile</h2>
-          {editing === "agent" ? (
+          <h2 className="font-bold text-[var(--color-primary)]">Partner Profile</h2>
+          {editing === "partner" ? (
             <div className="mt-3 space-y-3">
               <Input placeholder="Org name" value={form.orgName} onChange={(e) => setForm((p) => ({ ...p, orgName: e.target.value }))} />
               <Input placeholder="Contact name" value={form.contactName} onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))} />
+              <p className="text-sm">Assigned clients: {partnerClientsCount}</p>
               <div className="flex gap-2">
                 <Button disabled={saving} onClick={saveProfile}>Save</Button>
                 <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
@@ -258,9 +687,10 @@ export default function AdminUserDetailPage() {
             </div>
           ) : (
             <div className="mt-2 grid gap-2 text-sm">
-              <p>Org: {agentProfile.org_name || "-"}</p>
-              <p>Contact: {agentProfile.contact_name || "-"}</p>
-              <Button variant="outline" className="mt-2" onClick={() => setEditing("agent")}>Edit Profile</Button>
+              <p>Org: {partnerProfile.org_name || "-"}</p>
+              <p>Contact: {partnerProfile.contact_name || "-"}</p>
+              <p>Assigned clients: {partnerClientsCount}</p>
+              <Button variant="outline" className="mt-2" onClick={() => setEditing("partner")}>Edit Profile</Button>
             </div>
           )}
         </Card>
@@ -284,7 +714,8 @@ export default function AdminUserDetailPage() {
           )}
         </Card>
       )}
-      {msg ? <p className="text-sm text-slate-600">{msg}</p> : null}
+        </>
+      )}
     </div>
   );
 }
