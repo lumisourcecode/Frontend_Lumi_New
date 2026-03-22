@@ -2,8 +2,28 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, Progress } from "@/components/ui/primitives";
+import { 
+  Badge, 
+  Button, 
+  Card, 
+  Progress 
+} from "@/components/ui/primitives";
+import { 
+  Users, 
+  Car, 
+  Clock, 
+  ClipboardCheck, 
+  Activity, 
+  Zap, 
+  ShieldCheck, 
+  ArrowUpRight,
+  Settings,
+  AlertTriangle,
+  Info
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { apiJson, getAuthSession } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 type Stats = {
   ridersCount: number;
@@ -14,56 +34,18 @@ type Stats = {
   activeTripsCount: number;
 };
 
-function buildPriorityQueue(stats: Stats | null) {
-  const items: Array<{ id: string; title: string; detail: string; tone: "danger" | "pending"; action: string; actionLabel: string }> = [];
-  if (stats && stats.pendingEnrollmentsCount > 0) {
-    items.push({
-      id: "ENR",
-      title: "Driver enrollments pending",
-      detail: `${stats.pendingEnrollmentsCount} driver(s) awaiting approval.`,
-      tone: "danger",
-      action: "/admin/enrollments",
-      actionLabel: "Open enrollments",
-    });
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
   }
-  if (stats && stats.pendingTripsCount > 0) {
-    items.push({
-      id: "TRP",
-      title: "Trips need driver assignment",
-      detail: `${stats.pendingTripsCount} trip(s) pending assignment.`,
-      tone: "pending",
-      action: "/admin/dispatch",
-      actionLabel: "Assign trips",
-    });
-  }
-  if (items.length === 0 && stats) {
-    items.push({
-      id: "OK",
-      title: "All clear",
-      detail: "No urgent actions. Check Activity or Reports for details.",
-      tone: "pending",
-      action: "/admin/activity",
-      actionLabel: "View activity",
-    });
-  }
-  return items;
-}
+};
 
-const quickActionsList = [
-  { title: "Create user", href: "/admin/users" },
-  { title: "Approve driver", href: "/admin/enrollments" },
-  { title: "Manual booking", href: "/admin/dispatch" },
-  { title: "Assign trips", href: "/admin/dispatch" },
-  { title: "Activity log", href: "/admin/activity" },
-  { title: "Billing", href: "/admin/billing" },
-];
-
-const automationHealth = [
-  { label: "Auto invoicing", value: 91 },
-  { label: "Reminder delivery", value: 95 },
-  { label: "Driver onboarding pipeline", value: 78 },
-  { label: "Compliance sync", value: 88 },
-];
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+};
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -76,100 +58,184 @@ export default function AdminDashboardPage() {
       .catch(() => {});
   }, [session?.accessToken]);
 
-  const kpis = stats ? [
-    { label: "Riders", value: String(stats.ridersCount), note: "Registered" },
-    { label: "Drivers", value: String(stats.driversCount), note: `${stats.pendingEnrollmentsCount} pending enrollment` },
-    { label: "Bookings", value: String(stats.bookingsCount), note: "Total" },
-    { label: "Pending Trips", value: String(stats.pendingTripsCount), note: "Need driver" },
-    { label: "Active Trips", value: String(stats.activeTripsCount), note: "In progress" },
-  ] : [];
+  const kpis = [
+    { label: "Total Riders", value: stats?.ridersCount ?? "...", icon: Users, trend: "+12%", color: "sky" },
+    { label: "Verified Drivers", value: stats?.driversCount ?? "...", icon: Car, trend: "+5%", color: "emerald" },
+    { label: "Total Bookings", value: stats?.bookingsCount ?? "...", icon: ClipboardCheck, trend: "+24%", color: "indigo" },
+    { label: "Pending Dispatch", value: stats?.pendingTripsCount ?? "...", icon: Clock, trend: "-2%", color: "rose" },
+    { label: "Active Revenue", value: stats?.activeTripsCount ?? "...", icon: Zap, trend: "+18%", color: "amber" },
+  ];
 
   return (
-    <div className="space-y-4">
-      <Card className="overflow-hidden border-0 bg-gradient-to-r from-[var(--color-primary)] via-indigo-800 to-indigo-950 text-white">
-        <div className="grid gap-4 lg:grid-cols-[1.5fr,1fr]">
-          <div>
-            <h1 className="text-2xl font-bold">Enterprise Admin Workspace</h1>
-            <p className="mt-2 max-w-3xl text-sm text-indigo-100">
-              Unified control center for dispatch, billing, user access, driver enrollment, partner
-              operations, compliance, and reporting.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button>Run End-of-Day Automation</Button>
-              <Button variant="soft">Download Operations Snapshot</Button>
-            </div>
-          </div>
-          <Card className="border border-white/20 bg-white/10 p-4 text-white shadow-none">
-            <p className="text-xs uppercase tracking-wide text-indigo-100">Live Operational Status</p>
-            <p className="mt-2 text-2xl font-bold">Stable</p>
-            <p className="mt-1 text-xs text-indigo-100">All critical systems healthy. 3 medium-priority actions pending.</p>
-          </Card>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {kpis.length ? kpis.map((kpi) => (
-          <Card key={kpi.label}>
-            <p className="text-xs text-slate-500">{kpi.label}</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--color-primary)]">{kpi.value}</p>
-            <p className="text-xs text-slate-600">{kpi.note}</p>
-          </Card>
-        )) : (
-          <Card><p className="text-sm text-slate-600">Loading stats...</p></Card>
-        )}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
-        <Card>
-          <h2 className="text-lg font-semibold text-[var(--color-primary)]">Priority Queue</h2>
-          <div className="mt-3 space-y-3">
-            {buildPriorityQueue(stats).map((item) => (
-              <div key={item.id} className="rounded-2xl border border-slate-200 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-slate-900">{item.title}</p>
-                  <Badge tone={item.tone}>{item.id}</Badge>
+    <motion.div 
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="space-y-8"
+    >
+      {/* Immersive Header Card */}
+      <motion.div variants={item}>
+        <Card className="relative overflow-hidden border-none bg-gradient-to-br from-slate-900 to-indigo-950 p-8 md:p-10 shadow-2xl">
+          <div className="absolute top-0 right-0 w-1/3 h-full bg-sky-500/10 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
+          <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+             <div className="space-y-4">
+               <Badge tone="info" className="bg-sky-500/10 border-sky-500/20 py-1.5 px-4 text-[10px] tracking-widest font-black uppercase">
+                 <ShieldCheck className="size-3 mr-2 text-sky-400" /> System Integrity: Optimal
+               </Badge>
+               <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">Admin Command Center</h1>
+               <p className="max-w-xl text-slate-400 font-medium text-sm leading-relaxed">
+                 Unified management of Lumi's Australian transport operations. Monitor live dispatch, oversee NDIS compliance, and manage enterprise user access.
+               </p>
+               <div className="flex flex-wrap gap-4 pt-2">
+                 <Button>Generate Operations PDF</Button>
+                 <Button variant="outline" className="border-white/10 hover:bg-white/5">System Logs</Button>
+               </div>
+             </div>
+             
+             <Card className="w-full lg:w-72 bg-slate-950/40 backdrop-blur-2xl border-white/10 p-6 space-y-4 shadow-none">
+                <div className="flex items-center justify-between">
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Global Status</p>
+                   <div className="size-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)] animate-pulse" />
                 </div>
-                <p className="mt-1 text-sm text-slate-600">{item.detail}</p>
-                <Link href={item.action} className="mt-2 inline-block text-sm font-semibold text-[var(--color-primary)]">
-                  {item.actionLabel}
-                </Link>
-              </div>
-            ))}
+                <div>
+                   <p className="text-3xl font-black text-white">Stable</p>
+                   <p className="text-xs text-slate-500 mt-1 font-medium italic">Latency: 24ms (Normal)</p>
+                </div>
+                <div className="pt-2">
+                   <Progress value={98} className="h-1.5 bg-white/5" indicatorClassName="bg-emerald-500" />
+                   <p className="text-[9px] font-bold text-slate-600 uppercase mt-2">API Uptime 99.98%</p>
+                </div>
+             </Card>
           </div>
         </Card>
+      </motion.div>
 
-        <Card>
-          <h2 className="text-lg font-semibold text-[var(--color-primary)]">Quick Actions</h2>
-          <div className="mt-3 grid gap-2">
-            {quickActionsList.map((action) => (
-              <Link
-                key={action.title}
-                href={action.href}
-                className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              >
-                {action.title}
-              </Link>
-            ))}
-          </div>
-        </Card>
+      {/* KPI Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        {kpis.map((kpi, idx) => (
+          <motion.div key={kpi.label} variants={item}>
+            <Card className="p-6 bg-slate-900/40 border-white/5 hover:border-white/10 transition-colors group relative overflow-hidden">
+               <div className={cn("absolute -top-12 -right-12 size-24 blur-[40px] opacity-10 rounded-full", `bg-${kpi.color}-500`)} />
+               <div className="flex items-center justify-between mb-4">
+                  <div className={cn("size-10 rounded-xl flex items-center justify-center bg-slate-950 border border-white/5", `text-${kpi.color}-400`)}>
+                     <kpi.icon className="size-5" />
+                  </div>
+                  <Badge className="bg-white/5 text-[9px] font-black border-none text-emerald-400">{kpi.trend}</Badge>
+               </div>
+               <p className="text-2xl font-black text-white">{kpi.value}</p>
+               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{kpi.label}</p>
+            </Card>
+          </motion.div>
+        ))}
       </div>
 
-      <Card>
-        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Automation Health</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {automationHealth.map((item) => (
-            <div key={item.label} className="rounded-2xl border border-slate-200 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-700">{item.label}</p>
-                <p className="text-sm font-semibold text-[var(--color-primary)]">{item.value}%</p>
-              </div>
-              <div className="mt-2">
-                <Progress value={item.value} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* Priority Actions */}
+        <motion.div variants={item} className="lg:col-span-2 space-y-6">
+           <div className="flex items-center justify-between px-2">
+              <h2 className="text-lg font-black text-white uppercase tracking-widest">Priority Workflow Queue</h2>
+              <Link href="/admin/activity" className="text-[10px] font-bold text-sky-400 uppercase tracking-widest hover:text-sky-300 transition-colors">Clear All</Link>
+           </div>
+           
+           <div className="space-y-4">
+              {(stats?.pendingEnrollmentsCount ?? 0) > 0 && (
+                <Card className="p-5 flex items-center justify-between bg-rose-500/5 border-rose-500/10 hover:bg-rose-500/10 transition-colors border-l-4 border-l-rose-500">
+                   <div className="flex gap-4 items-center">
+                      <div className="size-10 rounded-full bg-rose-500/20 flex items-center justify-center">
+                         <AlertTriangle className="size-5 text-rose-500" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-white">Driver Verification Pending</p>
+                         <p className="text-xs text-slate-400">{stats?.pendingEnrollmentsCount} applications awaiting document review.</p>
+                      </div>
+                   </div>
+                   <Link href="/admin/enrollments">
+                     <Button size="sm" variant="soft" className="bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border-rose-500/20">Review Now</Button>
+                   </Link>
+                </Card>
+              )}
+
+              {(stats?.pendingTripsCount ?? 0) > 0 && (
+                <Card className="p-5 flex items-center justify-between bg-amber-500/5 border-amber-500/10 hover:bg-amber-500/10 transition-colors border-l-4 border-l-amber-500">
+                   <div className="flex gap-4 items-center">
+                      <div className="size-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                         <Clock className="size-5 text-amber-500" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-white">Unassigned Trips Detected</p>
+                         <p className="text-xs text-slate-400">{stats?.pendingTripsCount} bookings currently in the dispatch queue.</p>
+                      </div>
+                   </div>
+                   <Link href="/admin/dispatch">
+                     <Button size="sm" variant="soft" className="bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border-amber-500/20">Assign Driver</Button>
+                   </Link>
+                </Card>
+              )}
+
+              <Card className="p-5 flex items-center justify-between bg-sky-500/5 border-sky-500/10 border-l-4 border-l-sky-500 opacity-60">
+                 <div className="flex gap-4 items-center">
+                    <div className="size-10 rounded-full bg-sky-500/20 flex items-center justify-center">
+                       <Info className="size-5 text-sky-500" />
+                    </div>
+                    <div>
+                       <p className="font-bold text-white">Daily Operational Report</p>
+                       <p className="text-xs text-slate-400">Nightly sync complete. All invoices pushed to Xero.</p>
+                    </div>
+                 </div>
+                 <Badge tone="info" className="bg-sky-500/10 text-[9px]">COMPLETED</Badge>
+              </Card>
+           </div>
+        </motion.div>
+
+        {/* Quick Actions & Tools */}
+        <motion.div variants={item} className="space-y-6">
+           <h2 className="text-lg font-black text-white uppercase tracking-widest px-2">Rapid Tools</h2>
+           <Card className="p-4 bg-slate-900/40 border-white/5 space-y-3">
+              {[
+                { label: "Onboard Driver", icon: Users, href: "/admin/enrollments" },
+                { label: "Manual Booking", icon: Zap, href: "/admin/dispatch" },
+                { label: "Activity Logs", icon: Activity, href: "/admin/activity" },
+                { label: "User Management", icon: Settings, href: "/admin/users" },
+                { label: "Billing & Xero", icon: ClipboardCheck, href: "/admin/billing" },
+              ].map(action => (
+                <Link key={action.label} href={action.href} className="group w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-sky-500/30 hover:bg-sky-500/5 transition-all">
+                   <div className="flex items-center gap-4">
+                      <action.icon className="size-5 text-slate-400 group-hover:text-sky-400 transition-colors" />
+                      <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{action.label}</span>
+                   </div>
+                   <ArrowUpRight className="size-4 text-slate-600 group-hover:text-sky-400 transition-colors" />
+                </Link>
+              ))}
+           </Card>
+           
+           <Card className="p-8 bg-gradient-to-br from-sky-600/20 to-indigo-600/20 border-sky-500/20 text-center space-y-4">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest">Need Support?</h3>
+              <p className="text-xs text-slate-400 font-medium px-4">Direct access to the Dev Ops emergency line for operational issues.</p>
+              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-xs">Contact Infrastructure Team</Button>
+           </Card>
+        </motion.div>
+      </div>
+
+      {/* Automation Health Matrix */}
+      <motion.div variants={item} className="space-y-6">
+         <h2 className="text-lg font-black text-white uppercase tracking-widest px-2">Automation Health Matrix</h2>
+         <div className="grid gap-6 md:grid-cols-4">
+            {[
+              { label: "NDIS Claim Sync", value: 91, color: "emerald" },
+              { label: "Xero Invoicing", value: 95, color: "sky" },
+              { label: "Dispatch AI Engine", value: 78, color: "amber" },
+              { label: "Twilio SMS Gateway", value: 99, color: "indigo" },
+            ].map(m => (
+              <Card key={m.label} className="p-6 bg-slate-900/60 border-white/10">
+                 <div className="flex items-center justify-between mb-4">
+                    <p className="text-xs font-bold text-slate-300">{m.label}</p>
+                    <span className={cn("text-xs font-black", `text-${m.color}-400`)}>{m.value}%</span>
+                 </div>
+                 <Progress value={m.value} className="h-2 bg-white/5" indicatorClassName={cn(`bg-${m.color}-500`)} />
+              </Card>
+            ))}
+         </div>
+      </motion.div>
+    </motion.div>
   );
 }
