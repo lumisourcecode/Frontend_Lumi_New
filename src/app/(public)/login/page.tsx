@@ -1,79 +1,163 @@
 "use client";
 
 import Link from "next/link";
-import { Car, ShieldCheck, User, Users } from "lucide-react";
-import { Button, Card } from "@/components/ui/primitives";
+import { Car, ShieldCheck, User, Users, ChevronRight, Globe, Info } from "lucide-react";
+import { motion } from "framer-motion";
+import { Button, Card, Badge } from "@/components/ui/primitives";
 import { Logo } from "@/components/ui/logo";
+import { cn } from "@/lib/utils";
+
+const portals = [
+  {
+    role: "Rider",
+    description: "Book accessibility-focused rides, manage NDIS funding, and track your history.",
+    icon: User,
+    href: "/rider/login",
+    color: "sky",
+    gradient: "from-sky-500 to-sky-700"
+  },
+  {
+    role: "Driver",
+    description: "Accept manifests, track earnings, manage documents, and go online.",
+    icon: Car,
+    href: "/driver/login",
+    color: "indigo",
+    gradient: "from-indigo-500 to-indigo-700"
+  },
+  {
+    role: "Partner",
+    description: "Manage facility clients, roster care staff, and handle bulk billing.",
+    icon: Users,
+    href: "/partner/login",
+    color: "emerald",
+    gradient: "from-emerald-500 to-emerald-700"
+  },
+  {
+    role: "Admin",
+    description: "Global system administration, user management, and dispatch oversight.",
+    icon: ShieldCheck,
+    href: "/admin/login",
+    color: "slate",
+    gradient: "from-slate-700 to-slate-900",
+    outline: true
+  }
+];
 
 export default function LoginPage() {
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-12">
-      <div className="rounded-2xl border-0 bg-[var(--color-primary)] px-6 py-8 text-white shadow-xl">
-        <Logo href="/" variant="light" className="mb-3 h-12 w-auto" />
-        <p className="max-w-2xl text-sm leading-relaxed text-slate-200">
-          Separate portals for riders, drivers, partners, and admin. One email can have multiple roles if you register separately in each portal.
-        </p>
+    <div className="min-h-screen bg-slate-950 flex flex-col relative overflow-hidden">
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-sky-500/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full" />
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="flex flex-col transition-shadow hover:shadow-lg">
-          <div className="rounded-xl bg-slate-100 p-3 w-fit">
-            <User className="size-8 text-[var(--color-primary)]" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-[var(--color-primary)]">Rider</h2>
-          <p className="mt-1 flex-1 text-sm text-slate-600">
-            Book rides, view history, manage NDIS and profile.
+      <div className="relative z-10 mx-auto max-w-7xl w-full px-6 py-12 md:py-20 flex flex-col items-center">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mb-16 text-center space-y-4"
+        >
+          <Logo href="/" variant="light" className="h-16 w-auto mx-auto mb-6 transition-transform hover:scale-105" />
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+            Welcome to <span className="gradient-text">Lumi Ride Portal</span>
+          </h1>
+          <p className="max-w-xl mx-auto text-slate-400 text-sm md:text-base font-medium leading-relaxed italic">
+            "Seamless accessibility, professional care, and intelligent logistics for Australia."
           </p>
-          <Link href="/rider/login" className="mt-5">
-            <Button className="w-full">Rider Login</Button>
-          </Link>
-        </Card>
-        <Card className="flex flex-col transition-shadow hover:shadow-lg">
-          <div className="rounded-xl bg-slate-100 p-3 w-fit">
-            <Car className="size-8 text-[var(--color-primary)]" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-[var(--color-primary)]">Driver</h2>
-          <p className="mt-1 flex-1 text-sm text-slate-600">
-            Manifest, earnings, shift, documents.
-          </p>
-          <Link href="/driver/login" className="mt-5">
-            <Button className="w-full">Driver Login</Button>
-          </Link>
-        </Card>
-        <Card className="flex flex-col transition-shadow hover:shadow-lg">
-          <div className="rounded-xl bg-slate-100 p-3 w-fit">
-            <Users className="size-8 text-[var(--color-primary)]" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-[var(--color-primary)]">Partner</h2>
-          <p className="mt-1 flex-1 text-sm text-slate-600">
-            Client bookings, roster, billing.
-          </p>
-          <Link href="/partner/login" className="mt-5">
-            <Button className="w-full">Partner Login</Button>
-          </Link>
-        </Card>
-        <Card className="flex flex-col transition-shadow hover:shadow-lg">
-          <div className="rounded-xl bg-slate-100 p-3 w-fit">
-            <ShieldCheck className="size-8 text-[var(--color-primary)]" />
-          </div>
-          <h2 className="mt-4 text-lg font-bold text-[var(--color-primary)]">Admin</h2>
-          <p className="mt-1 flex-1 text-sm text-slate-600">
-            Super admin creates users. admin@lumiride.com.au
-          </p>
-          <Link href="/admin/login" className="mt-5">
-            <Button variant="outline" className="w-full">Admin Login</Button>
-          </Link>
-        </Card>
-      </div>
+        </motion.div>
 
-      <Card className="border-slate-200/80">
-        <h3 className="font-bold text-[var(--color-primary)]">How it works</h3>
-        <ul className="mt-4 space-y-3 text-sm text-slate-700">
-          <li className="flex gap-2"><span className="text-[var(--color-accent)]">•</span> <strong>One email, multiple roles:</strong> Register separately in each portal (Rider, Driver, Partner) to add that role to your account.</li>
-          <li className="flex gap-2"><span className="text-[var(--color-accent)]">•</span> <strong>Portal-scoped login:</strong> Sign in from the portal you need. If not registered for that role, you must register first.</li>
-          <li className="flex gap-2"><span className="text-[var(--color-accent)]">•</span> <strong>Super admin:</strong> Only admin@lumiride.com.au (seeded). They create all other users including admins.</li>
-        </ul>
-      </Card>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 w-full">
+          {portals.map((portal, idx) => (
+            <motion.div
+              key={portal.role}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              whileHover={{ y: -8 }}
+              className="flex"
+            >
+              <Card className="flex flex-col group h-full relative overflow-hidden border-white/5 bg-slate-900/40 hover:bg-slate-900/60 transition-all">
+                <div className={cn("absolute -top-10 -right-10 size-32 opacity-5 rounded-full blur-2xl transition-all group-hover:opacity-20 bg-gradient-to-br", portal.gradient)} />
+                
+                <div className="relative z-10">
+                   <div className={cn("p-4 rounded-2xl w-fit mb-6 bg-slate-950/50 border border-white/5 shadow-xl group-hover:scale-110 transition-transform")}>
+                      <portal.icon className={cn("size-8", `text-${portal.color}-400`)} />
+                   </div>
+                   
+                   <h2 className="text-2xl font-black text-white mb-2">{portal.role}</h2>
+                   <p className="text-sm font-medium text-slate-400 leading-relaxed mb-8 min-h-[60px]">
+                      {portal.description}
+                   </p>
+                </div>
+
+                <div className="mt-auto relative z-10 w-full">
+                  <Link href={portal.href}>
+                    <Button 
+                      variant={portal.outline ? "outline" : "primary"} 
+                      className={cn("w-full group/btn relative overflow-hidden", portal.outline && "border-white/10 hover:border-white/30")}
+                    >
+                      <span>Enter Portal</span>
+                      <ChevronRight className="size-4 ml-2 transition-transform group-hover/btn:translate-x-1" />
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div 
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           transition={{ delay: 0.6 }}
+           className="mt-20 w-full max-w-4xl"
+        >
+          <Card className="bg-slate-900/20 border-white/5 backdrop-blur-xl p-8">
+            <div className="flex items-center gap-2 mb-6 text-sky-400">
+               <Info className="size-5" />
+               <h3 className="font-black text-sm uppercase tracking-widest">Portal Navigation Guide</h3>
+            </div>
+            <div className="grid md:grid-cols-3 gap-8">
+               <div className="space-y-2">
+                 <p className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                   <Globe className="size-3 text-sky-400" /> Omni-Login
+                 </p>
+                 <p className="text-[11px] text-slate-500 leading-relaxed">
+                   One email identity across all portals. Register separately for each role you require.
+                 </p>
+               </div>
+               <div className="space-y-2">
+                 <p className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                   <ShieldCheck className="size-3 text-indigo-400" /> Security First
+                 </p>
+                 <p className="text-[11px] text-slate-500 leading-relaxed">
+                   Portals are strictly role-scoped. Your data stays localized within the relevant context.
+                 </p>
+               </div>
+               <div className="space-y-2">
+                 <p className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                   <Users className="size-3 text-emerald-400" /> Multi-Role Support
+                 </p>
+                 <p className="text-[11px] text-slate-500 leading-relaxed">
+                   Need to be a partner and a driver? Simply complete the onboarding for both portals.
+                 </p>
+               </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        <footer className="mt-20 py-8 border-t border-white/5 w-full flex flex-col md:flex-row items-center justify-between gap-6 px-4">
+           <div className="flex gap-6 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+              <Link href="/about" className="hover:text-white transition-colors">About</Link>
+              <Link href="/partners" className="hover:text-white transition-colors">Corporate</Link>
+              <Link href="/help" className="hover:text-white transition-colors">Help Center</Link>
+           </div>
+           <p className="text-[11px] font-medium text-slate-600">
+             © 2026 Lumi Rides Australia. All Rights Reserved.
+           </p>
+        </footer>
+      </div>
     </div>
   );
 }

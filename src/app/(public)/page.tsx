@@ -1,540 +1,369 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import {
-  Accessibility,
-  CalendarDays,
-  CarTaxiFront,
-  CircleCheckBig,
-  Clock3,
-  HandHeart,
-  Heart,
-  Hospital,
-  Languages,
-  Leaf,
-  PhoneCall,
-  ShieldCheck,
-  Sparkles,
-  Star,
+import { 
+  Accessibility, 
+  CalendarDays, 
+  CarTaxiFront, 
+  CircleCheckBig, 
+  Clock3, 
+  HandHeart, 
+  Heart, 
+  Hospital, 
+  Languages, 
+  Leaf, 
+  PhoneCall, 
+  ShieldCheck, 
+  Sparkles, 
+  Star, 
   Users,
+  ArrowRight,
+  Globe,
+  MapPin,
+  ChevronRight,
+  Zap
 } from "lucide-react";
-import { Button, Card } from "@/components/ui/primitives";
+import { motion } from "framer-motion";
+import { Button, Card, Badge } from "@/components/ui/primitives";
 import { Logo } from "@/components/ui/logo";
+import { cn } from "@/lib/utils";
 
 const pillars = [
   {
-    title: "NDIS Provider",
-    description:
-      "As a registered NDIS provider for disability service centres, aged care facilities and government health organisations, our team is educated and proactive in providing accessible services.",
+    title: "NDIS Registered Provider",
+    description: "Specialized transport for disability centres, aged care, and government health orgs. Proactive, educated, and dignity-focused care.",
     icon: Hospital,
+    color: "sky"
   },
   {
-    title: "Certified Drivers",
-    description:
-      "Our drivers are extensively screened including Police Checks, hold Working With Children cards and complete the Lumi Training Program with continued learning and regular reviews.",
+    title: "Certified Duty of Care",
+    description: "Drivers hold Police Checks, WWCC, and complete the elite Lumi Training Program with regular performance reviews.",
     icon: ShieldCheck,
+    color: "indigo"
   },
   {
-    title: "Exceptional Service",
-    description:
-      "Enjoy consistent service with transparent, set pricing in clean, safe and sustainable Lumi-branded vehicles that are on time, every time.",
+    title: "Premium Fleet Standards",
+    description: "Modern, sustainable Lumi-branded vehicles with transparent pricing. No surge, no surprises, always on time.",
     icon: CarTaxiFront,
+    color: "emerald"
   },
-];
-
-const serviceHighlights = [
-  "No waiting and no surge pricing",
-  "Guaranteed pre-booked ride windows",
-  "Multilingual support options",
-  "Companion, mobility, and assistance-ready transport",
-  "Duty-of-care-first operating standards",
-  "Community-focused local drivers",
 ];
 
 const stats = [
   { label: "Communities Served", value: "80+", icon: Users },
   { label: "Partner Facilities", value: "30+", icon: Hospital },
-  { label: "On-time Dispatch Rate", value: "98.2%", icon: Clock3 },
-  { label: "Customer Satisfaction", value: "4.9/5", icon: Star },
-];
-
-const testimonials = [
-  {
-    quote: "Lumi has transformed how we coordinate transport for our clients. Reliable, professional, and always on time.",
-    author: "Sarah M.",
-    role: "Care Coordinator",
-  },
-  {
-    quote: "As an NDIS participant, having a guaranteed ride with no surprises gives me peace of mind. Lumi delivers.",
-    author: "James T.",
-    role: "NDIS Participant",
-  },
-  {
-    quote: "Driving for Lumi means meaningful work in my community. The training and support are excellent.",
-    author: "Maria L.",
-    role: "Lumi Driver",
-  },
-];
-
-const trustBadges = [
-  "NDIS Registered",
-  "Police Checked Drivers",
-  "WWCC Certified",
-  "Duty of Care Compliant",
-];
-
-const steps = [
-  { title: "Pre-book", desc: "Online or by phone to lock in your ride window", icon: Clock3 },
-  { title: "We assign", desc: "Suitable drivers based on support needs", icon: Users },
-  { title: "You're notified", desc: "Clear updates before pickup", icon: HandHeart },
-  { title: "Ride complete", desc: "Transparent billing and records", icon: CircleCheckBig },
+  { label: "On-time Dispatch", value: "98.2%", icon: Clock3 },
+  { label: "Client Satisfaction", value: "4.9/5", icon: Star },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="overflow-x-hidden bg-slate-50 text-slate-900">
-      {/* Hero - Full bleed */}
-      <section className="relative min-h-[90vh] overflow-hidden">
-        <div className="absolute inset-0 bg-[var(--lumi-gradient)]" />
-        <Image
-          src="https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1920&q=80"
-          alt="Accessible transport"
-          fill
-          className="object-cover opacity-25"
-          priority
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/50 to-transparent" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-sky-500/30">
+      {/* Navigation Layer */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/20 backdrop-blur-xl border-b border-white/5">
+        <div className="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">
+          <Logo href="/" variant="light" className="h-10 w-auto" />
+          <div className="hidden md:flex items-center gap-8 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+             <Link href="/about" className="hover:text-white transition-colors">Mission</Link>
+             <Link href="/accessibility" className="hover:text-white transition-colors">Accessibility</Link>
+             <Link href="/partners" className="hover:text-white transition-colors">Partners</Link>
+             <Link href="/drive-with-us" className="hover:text-white transition-colors">Careers</Link>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-white">Sign In</Link>
+            <Link href="/book-my-ride">
+              <Button size="sm" className="hidden sm:inline-flex">Book Ride</Button>
+            </Link>
+          </div>
+        </div>
+      </nav>
 
-        <div className="relative mx-auto flex min-h-[90vh] max-w-7xl flex-col justify-center gap-12 px-4 py-24 lg:flex-row lg:items-center lg:gap-20">
-          <div className="flex-1 space-y-8">
-            <div className="animate-fade-in opacity-0">
-              <Logo href="/" variant="light" className="h-16 w-auto opacity-95" />
-            </div>
-            <h1 className="animate-fade-in-up text-4xl font-bold leading-[1.1] tracking-tight text-white opacity-0 md:text-5xl lg:text-6xl xl:text-7xl">
-              Our mission is to be the most accessible and most sustainable ride service.
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center overflow-hidden pt-20">
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1920&q=80"
+            alt="Premium Transport"
+            fill
+            className="object-cover opacity-10"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950/80 to-slate-950" />
+          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-sky-500/10 blur-[150px] rounded-full animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 blur-[150px] rounded-full" />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-7xl px-6 flex flex-col lg:flex-row items-center gap-16 py-20">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex-1 space-y-10"
+          >
+            <Badge tone="info" className="bg-sky-500/10 border-sky-500/20 py-2 px-4 text-xs">
+              <Zap className="size-3 mr-2 text-sky-400 fill-sky-400" /> NDIS Registered Provider
+            </Badge>
+            <h1 className="text-5xl md:text-6xl lg:text-8xl font-black leading-[1.05] tracking-tight">
+              Accessible <br />
+              <span className="gradient-text">Transport</span> <br />
+              Reimagined.
             </h1>
-            <p className="animate-fade-in-up max-w-2xl text-lg text-slate-300 opacity-0 animate-delay-1">
-              We deliver exceptional and accessible ride services within your community. Our pre-booked
-              service means no waiting, no surge pricing and a guaranteed ride every time.
+            <p className="max-w-2xl text-lg md:text-xl text-slate-400 font-medium leading-relaxed">
+              Serving the Australian disability and aged care sector with guaranteed ride windows, certified support-trained drivers, and zero surge pricing.
             </p>
-            <div className="flex flex-wrap gap-4 opacity-0 animate-fade-in-up animate-delay-2">
+            <div className="flex flex-wrap gap-6">
               <Link href="/book-my-ride">
-                <Button className="h-14 rounded-2xl px-10 text-base font-semibold shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl">
-                  Book My Ride
+                <Button size="lg" className="h-16 px-10 text-lg shadow-2xl shadow-sky-500/20">
+                  Book Your Journey <ArrowRight className="size-5 ml-2" />
                 </Button>
               </Link>
-              <Link href="/accessibility">
-                <Button variant="outline" className="h-14 rounded-2xl border-white/40 bg-white/5 px-10 text-base font-semibold text-white hover:bg-white/15">
-                  Find Out Why
+              <Link href="/partners">
+                <Button variant="outline" size="lg" className="h-16 px-10 text-lg border-white/10 hover:bg-white/5">
+                  Partner with Us
                 </Button>
               </Link>
             </div>
-            <div className="grid gap-3 pt-4 text-sm text-slate-300 opacity-0 animate-fade-in-up animate-delay-3 sm:grid-cols-2">
-              {serviceHighlights.map((line) => (
-                <p key={line} className="flex items-center gap-2">
-                  <CircleCheckBig className="size-5 shrink-0 text-cyan-400" />
-                  {line}
-                </p>
-              ))}
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-8 pt-8 border-t border-white/5">
+               {stats.map(s => (
+                 <div key={s.label}>
+                    <p className="text-3xl font-black text-white">{s.value}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{s.label}</p>
+                 </div>
+               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="flex-shrink-0 lg:w-[440px]">
-            <div className="glass-card animate-fade-in-up rounded-3xl p-6 opacity-0 animate-delay-1 lg:p-8">
-              <h2 className="text-2xl font-bold text-white">Plan ahead with confidence</h2>
-              <p className="mt-3 text-sm text-slate-200">
-                Built for riders, families, carers, and organisations who need dependable scheduled
-                transport and clear communication.
-              </p>
-              <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-white/20 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                  <p className="font-semibold text-white">Pre-Book Online</p>
-                  <p className="mt-1 text-xs text-slate-300">6am - 11pm | 7 days a week | 24 hours notice required</p>
-                </div>
-                <div className="rounded-2xl border border-white/20 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                  <p className="font-semibold text-white">Call to pre-book</p>
-                  <p className="mt-1 text-xs text-slate-300">Prefer a chat? Multilingual options available</p>
-                  <a href="tel:1300586474" className="mt-2 inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300">
-                    <PhoneCall className="size-4" />
-                    1300 586 474
-                  </a>
-                </div>
-                <div className="rounded-2xl border border-white/20 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                  <p className="font-semibold text-white">Duty of Care Promise</p>
-                  <p className="mt-1 text-xs text-slate-300">Accessible, safe, and supportive from pickup to drop-off</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust badges */}
-      <section className="border-b border-slate-200 bg-white py-12">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-8 px-4">
-          {trustBadges.map((badge) => (
-            <div key={badge} className="flex items-center gap-2 text-slate-600">
-              <ShieldCheck className="size-5 text-emerald-500" />
-              <span className="font-medium">{badge}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="bg-white py-16">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 md:grid-cols-4">
-          {stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div key={stat.label} className="group text-center">
-                <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-indigo-50 transition-colors group-hover:bg-indigo-100">
-                  <Icon className="size-7 text-indigo-600" />
-                </div>
-                <p className="text-3xl font-bold text-[var(--color-primary)] md:text-4xl">{stat.value}</p>
-                <p className="mt-1 text-sm font-medium text-slate-600">{stat.label}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Ride with Lumi */}
-      <section className="bg-gradient-to-b from-slate-50 to-white py-24">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="mb-12 flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-indigo-100">
-              <Sparkles className="size-6 text-indigo-600" />
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight text-[var(--color-primary)] md:text-4xl">
-              Ride with Lumi
-            </h2>
-          </div>
-          <p className="max-w-3xl text-lg text-slate-600">
-            Lumi delivers an exceptional and accessible ride service with a focus on duty of care for peace of mind.
-            From healthcare visits to community outings, we focus on respectful, reliable support for every ride.
-          </p>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {pillars.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Card key={item.title} className="group hover-lift border-slate-100 bg-white p-8 shadow-sm">
-                  <div className="rounded-2xl bg-indigo-50 p-4 w-fit transition-colors group-hover:bg-indigo-100">
-                    <Icon className="size-10 text-indigo-600" />
+          {/* Featured Glass Widget */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="w-full lg:w-[460px]"
+          >
+            <Card className="p-8 backdrop-blur-3xl bg-slate-900/40 border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
+               <div className="flex items-center gap-4 mb-8">
+                  <div className="size-12 rounded-2xl bg-sky-500/20 flex items-center justify-center">
+                    <CalendarDays className="size-6 text-sky-400" />
                   </div>
-                  <p className="mt-5 text-xl font-semibold text-slate-900">{item.title}</p>
-                  <p className="mt-3 text-sm leading-relaxed text-slate-600">{item.description}</p>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Scheduled Care</h3>
+                    <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Priority Booking</p>
+                  </div>
+               </div>
+               
+               <div className="space-y-6">
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 size-2 rounded-full bg-sky-500" />
+                    <Input placeholder="Pickup location..." className="pl-10 h-14 bg-slate-950/50" readOnly />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 size-2 rounded-full bg-indigo-500" />
+                    <Input placeholder="Destination..." className="pl-10 h-14 bg-slate-950/50" readOnly />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Ride Type</p>
+                        <p className="text-sm font-bold text-white">Wheelchair Accessible</p>
+                     </div>
+                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Pricing</p>
+                        <p className="text-sm font-bold text-white">Flat Daily Rate</p>
+                     </div>
+                  </div>
+
+                  <Link href="/book-my-ride" className="block">
+                    <Button variant="primary" className="w-full h-14">Get Instant Quote</Button>
+                  </Link>
+                  <p className="text-[10px] text-center text-slate-500 font-medium">
+                    Trusted by 30+ Facilities in Victoria & NSW
+                  </p>
+               </div>
+            </Card>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Trust Bar */}
+      <section className="py-12 border-y border-white/5 bg-slate-950/50">
+        <div className="mx-auto max-w-7xl px-6 flex flex-wrap items-center justify-center gap-12 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
+           {["Police Checked", "WWCC Certified", "NDIS Compliant", "Public Liability $20M", "Sustainability First"].map(t => (
+             <span key={t} className="text-xs font-black uppercase tracking-[0.3em]">{t}</span>
+           ))}
+        </div>
+      </section>
+
+      {/* Service Pillars */}
+      <section className="py-32 relative">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="text-center max-w-3xl mx-auto space-y-4 mb-20">
+            <h2 className="text-4xl md:text-5xl font-black text-white">Reliability Built on <span className="gradient-text">Trust</span>.</h2>
+            <p className="text-lg text-slate-400 font-medium">
+              We specialize in complex transport needs that regular ride-shares cannot fulfill.
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {pillars.map((p, idx) => (
+              <motion.div
+                key={p.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+              >
+                <Card className="h-full p-10 group bg-slate-900/20 hover:bg-slate-900/40 border-white/5 transition-all">
+                  <div className={cn("size-16 rounded-3xl mb-8 flex items-center justify-center transition-transform group-hover:scale-110", `bg-${p.color}-500/10`)}>
+                    <p.icon className={cn("size-8", `text-${p.color}-400`)} />
+                  </div>
+                  <h3 className="text-2xl font-black text-white mb-4 leading-tight">{p.title}</h3>
+                  <p className="text-slate-400 text-sm font-medium leading-relaxed">{p.description}</p>
                 </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* How it works - Image + Steps */}
-      <section className="bg-white py-24">
-        <div className="mx-auto grid max-w-7xl gap-16 px-4 lg:grid-cols-2">
-          <div className="relative min-h-[400px] overflow-hidden rounded-3xl shadow-2xl">
-            <Image
-              src="https://images.unsplash.com/photo-1469571486292-b53601020b59?auto=format&fit=crop&w=1400&q=80"
-              alt="Driver helping passenger"
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-            <div className="img-overlay absolute inset-0" />
-            <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-              <p className="text-lg font-semibold">Professional, caring drivers</p>
-              <p className="text-sm text-slate-200">Trained for accessibility and support</p>
-            </div>
-          </div>
-          <div className="flex flex-col justify-center space-y-8">
-            <h2 className="text-3xl font-bold tracking-tight text-[var(--color-primary)] md:text-4xl">
-              How Lumi Works
-            </h2>
-            <div className="space-y-6">
-              {steps.map((step, i) => {
-                const Icon = step.icon;
-                return (
-                  <div key={step.title} className="flex gap-4">
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
-                      <Icon className="size-6 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">{step.title}</p>
-                      <p className="mt-1 text-slate-600">{step.desc}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-4 pt-4">
-              <Link href="/book-my-ride">
-                <Button className="rounded-xl">Pre-Book Online</Button>
-              </Link>
-              <a href="tel:1300586474">
-                <Button variant="outline" className="rounded-xl">
-                  <PhoneCall className="mr-2 size-4" />
-                  1300 586 474
-                </Button>
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Accessibility highlight */}
-      <section className="relative overflow-hidden bg-[var(--lumi-gradient)] py-24 text-white">
-        <Image
-          src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1920&q=80"
-          alt="Healthcare access"
-          fill
-          className="object-cover opacity-20"
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-slate-900/70" />
-        <div className="relative mx-auto max-w-7xl px-4">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-            <div className="space-y-6">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-white/10">
-                <Accessibility className="size-8 text-cyan-400" />
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                Built for accessibility
-              </h2>
-              <p className="text-lg text-slate-200">
-                Wheelchair-accessible vehicles, trained drivers, and support for NDIS participants,
-                seniors, and anyone who needs a little extra care. We make every ride comfortable and dignified.
-              </p>
-              <Link href="/accessibility">
-                <Button variant="outline" className="rounded-xl border-white/40 bg-white/10 text-white hover:bg-white/20">
-                  Learn about accessibility
-                </Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {["Wheelchair accessible", "NDIS compliant", "Companion support", "Mobility aids"].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
-                  <CircleCheckBig className="size-6 text-cyan-400" />
-                  <p className="mt-2 font-medium">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Drive with Lumi */}
-      <section className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-900 py-24 text-white">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Drive with Lumi</h2>
-              <p className="text-lg text-indigo-100">
-                Lumi drivers enjoy secure, consistent work within their local community. Enjoy full employee
-                benefits while staying close to home. Provide safe and accessible transport to the members of
-                your community that need it the most.
-              </p>
-              <Link href="/drive-with-us">
-                <Button className="rounded-xl bg-white text-indigo-600 hover:bg-slate-100">
-                  Find Out More
-                </Button>
-              </Link>
-            </div>
-            <div className="rounded-3xl border border-white/20 bg-white/10 p-8 backdrop-blur-sm">
-              <h3 className="text-xl font-semibold">Why drive with Lumi</h3>
-              <ul className="mt-6 space-y-4">
-                {["Secure, local, consistent work", "Full employee benefits", "Lumi Training Program", "Community impact", "Structured support"].map((item) => (
-                  <li key={item} className="flex items-center gap-3">
-                    <CircleCheckBig className="size-5 text-cyan-300" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Sustainability */}
-      <section className="bg-white py-24">
-        <div className="mx-auto grid max-w-7xl gap-16 px-4 lg:grid-cols-2 lg:items-center">
-          <div className="relative min-h-[350px] overflow-hidden rounded-3xl">
-            <Image
-              src="https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=1400&q=80"
-              alt="Sustainable transport"
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-          </div>
-          <div className="space-y-6">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-100">
-              <Leaf className="size-8 text-emerald-600" />
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight text-[var(--color-primary)] md:text-4xl">
-              Sustainable & responsible
-            </h2>
-            <p className="text-lg text-slate-600">
-              We're committed to reducing our environmental footprint. Our fleet includes
-              fuel-efficient and sustainable vehicles, and we're always exploring ways to
-              serve our community more responsibly.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="bg-slate-50 py-24">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="mb-12 flex items-center gap-3">
-            <Heart className="size-8 text-rose-500" />
-            <h2 className="text-3xl font-bold tracking-tight text-[var(--color-primary)] md:text-4xl">
-              What our community says
-            </h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {testimonials.map((t) => (
-              <Card key={t.author} className="hover-lift border-slate-100 bg-white p-6 shadow-sm">
-                <div className="flex gap-1 text-amber-400">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="size-4 fill-current" />
-                  ))}
-                </div>
-                <p className="mt-4 text-slate-600">&ldquo;{t.quote}&rdquo;</p>
-                <p className="mt-4 font-semibold text-slate-900">{t.author}</p>
-                <p className="text-sm text-slate-500">{t.role}</p>
-              </Card>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Stakeholders */}
-      <section className="bg-white py-24">
-        <div className="mx-auto max-w-7xl px-4">
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--color-primary)] md:text-4xl">
-            Designed for Every Stakeholder
-          </h2>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            <Card className="hover-lift border-slate-100 bg-white p-8">
-              <Users className="size-10 text-indigo-600" />
-              <p className="mt-4 text-lg font-semibold text-[var(--color-primary)]">Participants & Families</p>
-              <p className="mt-2 text-slate-600">
-                Accessible booking, predictable service windows, and support-aware trip handling.
-              </p>
-            </Card>
-            <Card className="hover-lift border-slate-100 bg-white p-8">
-              <Hospital className="size-10 text-indigo-600" />
-              <p className="mt-4 text-lg font-semibold text-[var(--color-primary)]">Care Organisations</p>
-              <p className="mt-2 text-slate-600">
-                Partner dashboards, bulk bookings, and confidence in compliant transport delivery.
-              </p>
-            </Card>
-            <Card className="hover-lift border-slate-100 bg-white p-8">
-              <CarTaxiFront className="size-10 text-indigo-600" />
-              <p className="mt-4 text-lg font-semibold text-[var(--color-primary)]">Drivers</p>
-              <p className="mt-2 text-slate-600">
-                Secure, local, consistent work with structured standards and support.
-              </p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="bg-slate-50 py-24">
-        <div className="mx-auto max-w-7xl px-4">
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--color-primary)] md:text-4xl">
-            Frequently Asked Questions
-          </h2>
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <Card className="border-slate-100 bg-white p-6">
-              <p className="font-semibold text-slate-900">When can I pre-book?</p>
-              <p className="mt-2 text-slate-600">
-                Online pre-booking is available 6am-11pm, 7 days a week. We recommend 24 hours notice.
-              </p>
-            </Card>
-            <Card className="border-slate-100 bg-white p-6">
-              <p className="font-semibold text-slate-900">Do you provide multilingual support?</p>
-              <p className="mt-2 text-slate-600">
-                Yes, multilingual options are available when booking by phone.
-              </p>
-            </Card>
-            <Card className="border-slate-100 bg-white p-6">
-              <p className="font-semibold text-slate-900">Are your drivers screened?</p>
-              <p className="mt-2 text-slate-600">
-                Yes. Drivers complete police checks and Lumi training with ongoing reviews.
-              </p>
-            </Card>
-            <Card className="border-slate-100 bg-white p-6">
-              <p className="font-semibold text-slate-900">Can organisations bulk book rides?</p>
-              <p className="mt-2 text-slate-600">
-                Yes. Partner facilities can upload manifests and monitor client ride activity.
-              </p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="relative overflow-hidden bg-[var(--lumi-gradient)] py-24">
-        <div className="absolute inset-0">
+      {/* Visual Break - Immersive Section */}
+      <section className="py-32 relative overflow-hidden">
+        <div className="absolute inset-0 z-0">
           <Image
-            src="https://images.unsplash.com/photo-1526256262350-7da7584cf5eb?auto=format&fit=crop&w=1920&q=80"
-            alt=""
+            src="https://images.unsplash.com/photo-1469571486292-b53601020b59?auto=format&fit=crop&w=1400&q=80"
+            alt="Human Care"
             fill
-            className="object-cover opacity-15"
-            sizes="100vw"
+            className="object-cover opacity-20"
           />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent" />
         </div>
-        <div className="absolute inset-0 bg-slate-900/80" />
-        <div className="relative mx-auto max-w-4xl px-4 text-center">
-          <h3 className="text-3xl font-bold text-white md:text-4xl lg:text-5xl">
-            Ready to ride with confidence?
-          </h3>
-          <p className="mt-6 text-lg text-slate-200">
-            Book now, partner with us, or join our driver community and help deliver essential
-            accessible transport across local neighbourhoods.
-          </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link href="/book-my-ride">
-              <Button className="h-14 rounded-2xl px-10 text-base font-semibold shadow-lg">
-                Book My Ride
-              </Button>
-            </Link>
-            <Link href="/drive-with-us">
-              <Button variant="outline" className="h-14 rounded-2xl border-white/40 bg-white/5 px-10 text-base font-semibold text-white hover:bg-white/15">
-                Drive With Lumi
-              </Button>
-            </Link>
-            <Link href="/partners">
-              <Button variant="outline" className="h-14 rounded-2xl border-white/40 bg-white/5 px-10 text-base font-semibold text-white hover:bg-white/15">
-                Partner With Us
-              </Button>
-            </Link>
-          </div>
+        
+        <div className="relative z-10 mx-auto max-w-7xl px-6 grid md:grid-cols-2 items-center gap-16">
+           <div className="space-y-8">
+              <Badge tone="certified" className="h-10 px-5 text-[10px]">Community Legacy</Badge>
+              <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">
+                More than just a ride. <br />
+                <span className="text-sky-400">A companion on the road.</span>
+              </h2>
+              <p className="text-lg text-slate-300 font-medium leading-relaxed max-w-lg">
+                Our drivers are trained not just to drive, but to assist. Whether it's helping with mobility aids, coordinating with care facility staff, or providing door-to-door assistance, we ensure every journey is safe and dignified.
+              </p>
+              <div className="flex gap-4">
+                 <Button>View Accessibility Standards</Button>
+              </div>
+           </div>
+           
+           <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: "Assisted Boarding", icon: Accessibility },
+                { label: "Hospital Liaison", icon: Hospital },
+                { label: "Family Live-Tracks", icon: Globe },
+                { label: "NDIS Claiming", icon: FileText },
+              ].map((item, idx) => (
+                <div key={idx} className="p-8 rounded-3xl bg-slate-900/60 backdrop-blur-xl border border-white/5 space-y-4 hover:border-sky-500/30 transition-colors">
+                   <item.icon className="size-6 text-sky-400" />
+                   <p className="text-sm font-black text-white uppercase tracking-tight">{item.label}</p>
+                </div>
+              ))}
+           </div>
         </div>
       </section>
 
-      {/* Contact bar */}
-      <section className="border-t border-slate-200 bg-slate-100 py-8">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-8 px-4 text-sm text-slate-600 md:justify-between">
-          <p className="flex items-center gap-2">
-            <Languages className="size-5 text-indigo-600" />
-            Multilingual booking support available
-          </p>
-          <a href="tel:1300586474" className="flex items-center gap-2 font-semibold text-indigo-600 hover:underline">
-            <PhoneCall className="size-5" />
-            Call us: 1300 586 474
-          </a>
-          <p className="flex items-center gap-2">
-            <CalendarDays className="size-5 text-indigo-600" />
-            6am - 11pm | 7 days a week
-          </p>
+      {/* Corporate / Partner CTA */}
+      <section className="py-32">
+        <div className="mx-auto max-w-7xl px-6">
+           <Card className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-600 to-indigo-950 p-12 md:p-20 shadow-2xl">
+              <div className="absolute top-0 right-0 w-1/2 h-full bg-sky-400/10 blur-[100px] rounded-full translate-x-1/2" />
+              <div className="relative z-10 grid lg:grid-cols-2 items-center gap-16">
+                 <div className="space-y-6">
+                    <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter">Scale your Care <br />Operations.</h2>
+                    <p className="text-indigo-100 text-lg md:text-xl font-medium leading-relaxed opacity-90">
+                      Join 30+ aged care and disability facilities using Lumi to automate transport manifest, track client movements, and simplify NDIS billing.
+                    </p>
+                    <div className="flex flex-wrap gap-4 pt-4">
+                       <Button className="bg-white text-indigo-900 hover:bg-indigo-50 h-14 px-8 text-base">Request Partner Demo</Button>
+                       <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 h-14 px-8 text-base">Corporate Login</Button>
+                    </div>
+                 </div>
+                 <div className="grid grid-cols-1 gap-4">
+                    {[
+                      "Customized Partner CRM Access",
+                      "Automated Xero Invoicing & Sync",
+                      "Real-time Facility Monitoring",
+                      "Simplified NDIS Travel Claims"
+                    ].map(t => (
+                      <div key={t} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm">
+                         <div className="size-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                         {t}
+                      </div>
+                    ))}
+                 </div>
+              </div>
+           </Card>
         </div>
       </section>
+
+      {/* Global Footer */}
+      <footer className="py-20 border-t border-white/5 bg-slate-950">
+        <div className="mx-auto max-w-7xl px-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12">
+          <div className="col-span-2 lg:col-span-2 space-y-6">
+            <Logo href="/" variant="light" className="h-10 w-auto" />
+            <p className="text-slate-500 text-sm max-w-xs leading-relaxed font-medium">
+              Revolutionizing accessibility through intelligent logistics and compassionate care. NDIS Registered Provider #4050000000.
+            </p>
+            <div className="flex gap-4">
+               {/* Social Icons Placeholder */}
+               {[1,2,3,4].map(i => <div key={i} className="size-10 rounded-xl bg-slate-900 border border-white/5" />)}
+            </div>
+          </div>
+          
+          <div className="space-y-6">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Services</h4>
+            <ul className="space-y-4 text-xs font-bold text-slate-500 uppercase tracking-tight">
+              <li><Link href="/book-my-ride" className="hover:text-sky-400 transition-colors">Individual Booking</Link></li>
+              <li><Link href="/partners" className="hover:text-sky-400 transition-colors">Partner CRM</Link></li>
+              <li><Link href="/accessibility" className="hover:text-sky-400 transition-colors">Accessibility</Link></li>
+              <li><Link href="/drive-with-us" className="hover:text-sky-400 transition-colors">Career Pathways</Link></li>
+            </ul>
+          </div>
+
+          <div className="space-y-6">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Company</h4>
+            <ul className="space-y-4 text-xs font-bold text-slate-500 uppercase tracking-tight">
+              <li><Link href="/about" className="hover:text-sky-400 transition-colors">About Us</Link></li>
+              <li><Link href="/news" className="hover:text-sky-400 transition-colors">Impact Reports</Link></li>
+              <li><Link href="/help" className="hover:text-sky-400 transition-colors">Support Center</Link></li>
+              <li><Link href="/privacy" className="hover:text-sky-400 transition-colors">Legal & Privacy</Link></li>
+            </ul>
+          </div>
+
+          <div className="col-span-2 md:col-span-1 space-y-6">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Support</h4>
+            <div className="space-y-4">
+               <a href="tel:1300586474" className="block p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">24/7 Priority Line</p>
+                  <p className="text-sm font-black text-white">1300 586 474</p>
+               </a>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mx-auto max-w-7xl px-6 pt-20 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 mt-20">
+           <p className="text-[10px] font-medium text-slate-600 uppercase tracking-[0.2em]">
+             © 2026 Lumi Rides Australia. Built for the community.
+           </p>
+           <div className="flex gap-8 text-[10px] font-black text-slate-600 uppercase tracking-wider">
+              <span>ABN 12 345 678 901</span>
+              <span>Melbourne, VIC</span>
+           </div>
+        </div>
+      </footer>
     </div>
   );
 }
+
+const FileText = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
