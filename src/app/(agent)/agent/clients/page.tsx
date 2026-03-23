@@ -20,6 +20,7 @@ export default function PartnerClientsPage() {
     ndisId: "",
     notes: "",
   });
+  const DRAFT_KEY = "partner_client_draft_v1";
 
   async function loadClients() {
     const session = getAuthSession();
@@ -29,10 +30,28 @@ export default function PartnerClientsPage() {
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        try {
+          const draft = JSON.parse(raw) as typeof form;
+          setForm(draft);
+        } catch {
+          window.localStorage.removeItem(DRAFT_KEY);
+        }
+      }
+    }
     loadClients()
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
+
+  function saveDraftProfile() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+      setMsg("Draft profile saved locally.");
+    }
+  }
 
   async function createClient() {
     const session = getAuthSession();
@@ -173,7 +192,7 @@ export default function PartnerClientsPage() {
           ) : (
             <>
               <Button onClick={createClient} disabled={busy}>Add Client</Button>
-              <Button variant="outline">Save Draft Profile</Button>
+              <Button variant="outline" onClick={saveDraftProfile}>Save Draft Profile</Button>
             </>
           )}
         </div>

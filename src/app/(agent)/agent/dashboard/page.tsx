@@ -44,8 +44,12 @@ export default function PartnerDashboardPage() {
             <Link href="/partner/bookings">
               <Button>Book New Ride</Button>
             </Link>
-            <Button variant="outline">Plan Weekly Schedule</Button>
-            <Button variant="outline">Bulk Upload Manifest</Button>
+            <Link href="/partner/roster">
+              <Button variant="outline">Plan Weekly Schedule</Button>
+            </Link>
+            <Link href="/partner/bulk-upload">
+              <Button variant="outline">Bulk Upload Manifest</Button>
+            </Link>
           </div>
         </Card>
 
@@ -72,10 +76,10 @@ export default function PartnerDashboardPage() {
         <Card>
           <h3 className="font-semibold text-[var(--color-primary)]">Action Queue</h3>
           <div className="mt-3 grid gap-2">
-            <Button variant="outline">Approve Draft Travel Plans</Button>
-            <Button variant="outline">Send Family Trip Updates</Button>
-            <Button variant="outline">Review Missed / Rescheduled Trips</Button>
-            <Button variant="outline">Export Daily Coordination Report</Button>
+            <Link href="/partner/plans"><Button variant="outline">Approve Draft Travel Plans</Button></Link>
+            <Link href="/partner/help-center"><Button variant="outline">Send Family Trip Updates</Button></Link>
+            <Link href="/partner/live-operations"><Button variant="outline">Review Missed / Rescheduled Trips</Button></Link>
+            <Link href="/partner/reports"><Button variant="outline">Export Daily Coordination Report</Button></Link>
           </div>
         </Card>
       </div>

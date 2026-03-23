@@ -25,6 +25,7 @@ export default function AdminCompliancePage() {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [statusNotes, setStatusNotes] = useState<Record<string, { status: string; notes: string }>>({});
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -67,6 +68,44 @@ export default function AdminCompliancePage() {
 
   const pctUpToDate = totalDocs > 0 ? Math.round(((totalDocs - pendingCount) / totalDocs) * 100) : 0;
 
+  function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
+    const headers = rows.length ? Object.keys(rows[0]) : ["id", "status"];
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportProda() {
+    const rows = items.map((d) => ({
+      document_id: d.id,
+      driver: d.driver_name || d.driver_email || "",
+      doc_type: d.doc_type,
+      status: d.status,
+      expiry: d.expiry || "",
+    }));
+    downloadCsv(`proda-claim-${Date.now()}.csv`, rows);
+    setMsg("PRODA claim CSV exported.");
+  }
+
+  function exportMptp() {
+    const rows = items.map((d) => ({
+      document_id: d.id,
+      driver_email: d.driver_email || "",
+      status: d.status,
+      admin_notes: d.admin_notes || "",
+    }));
+    downloadCsv(`mptp-dcp-${Date.now()}.csv`, rows);
+    setMsg("MPTP/DCP export generated.");
+  }
+
   return (
     <div className="space-y-4">
       <Card className="bg-[var(--color-primary)] text-white">
@@ -97,12 +136,13 @@ export default function AdminCompliancePage() {
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Export Files</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button disabled>Generate PRODA Bulk Claim CSV (coming soon)</Button>
-          <Button variant="outline" disabled>Export MPTP DCP Trip Files</Button>
+          <Button onClick={exportProda}>Generate PRODA Bulk Claim CSV</Button>
+          <Button variant="outline" onClick={exportMptp}>Export MPTP DCP Trip Files</Button>
           <Link href="/admin/activity">
             <Button variant="outline">View Audit Log</Button>
           </Link>
         </div>
+        {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
       </Card>
 
       <Card>

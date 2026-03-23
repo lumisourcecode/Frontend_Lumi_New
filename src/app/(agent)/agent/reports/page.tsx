@@ -12,6 +12,8 @@ export default function PartnerReportsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [msg, setMsg] = useState("");
+  const [reportType, setReportType] = useState("operations");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -31,6 +33,56 @@ export default function PartnerReportsPage() {
 
   const completed = filtered.filter((b) => b.status === "completed").length;
   const onTimeRate = filtered.length ? Math.round((completed / filtered.length) * 1000) / 10 : 0;
+
+  function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
+    const headers = rows.length ? Object.keys(rows[0]) : ["id", "status"];
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function generate() {
+    const rows = filtered.map((b) => ({
+      booking_id: b.id,
+      pickup: b.pickup,
+      dropoff: b.dropoff,
+      status: b.status,
+      scheduled_at: b.scheduled_at,
+      report_type: reportType,
+    }));
+    if (rows.length === 0) {
+      setMsg("No data in selected range.");
+      return;
+    }
+    setMsg(`Report ready (${rows.length} rows).`);
+  }
+
+  function exportCsv() {
+    const rows = filtered.map((b) => ({
+      booking_id: b.id,
+      pickup: b.pickup,
+      dropoff: b.dropoff,
+      status: b.status,
+      scheduled_at: b.scheduled_at,
+    }));
+    downloadCsv(`partner-report-${Date.now()}.csv`, rows);
+    setMsg("CSV exported.");
+  }
+
+  function exportPdfFallback() {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+    setMsg("Opened print dialog as PDF export fallback.");
+  }
 
   return (
     <div className="space-y-4">
@@ -57,17 +109,18 @@ export default function PartnerReportsPage() {
             <option>All Facilities</option>
             <option>Lakeside Nursing Home</option>
           </Select>
-          <Select>
-            <option>Report Type: Operations</option>
-            <option>Report Type: Billing</option>
-            <option>Report Type: Client Outcomes</option>
+          <Select value={reportType} onChange={(e) => setReportType(e.target.value)}>
+            <option value="operations">Report Type: Operations</option>
+            <option value="billing">Report Type: Billing</option>
+            <option value="outcomes">Report Type: Client Outcomes</option>
           </Select>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button>Generate Report</Button>
-          <Button variant="outline">Export PDF</Button>
-          <Button variant="outline">Export CSV</Button>
+          <Button onClick={generate}>Generate Report</Button>
+          <Button variant="outline" onClick={exportPdfFallback}>Export PDF</Button>
+          <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
         </div>
+        {msg ? <p className="mt-2 text-xs text-slate-600">{msg}</p> : null}
         <div className="mt-3 space-y-2 text-sm">
           {filtered.slice(0, 20).map((b) => (
             <div key={b.id} className="rounded-xl border border-slate-200 p-3">

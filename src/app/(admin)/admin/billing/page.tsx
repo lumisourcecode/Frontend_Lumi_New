@@ -20,6 +20,13 @@ export default function AdminBillingPage() {
   const [items, setItems] = useState<BillingItem[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [tripId, setTripId] = useState("");
+  const [recipientId, setRecipientId] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [scheme, setScheme] = useState("NDIS");
+  const [amount, setAmount] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const session = getAuthSession();
@@ -32,6 +39,40 @@ export default function AdminBillingPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  async function generateInvoice() {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    if (!recipientId || !amount) {
+      setMsg("Recipient user ID and amount are required.");
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    try {
+      const numeric = Number(amount);
+      await apiJson("/admin/invoices/manual", {
+        method: "POST",
+        body: JSON.stringify({
+          recipientId,
+          notes: `Trip ${tripId || "manual"} | ${scheme} | Client: ${clientName || "N/A"}`,
+          items: [
+            {
+              description: `Transport invoice for ${tripId || "manual entry"}`,
+              ndisSupportItem: scheme === "NDIS" ? "04_590_0125_6_1" : undefined,
+              quantity: 1,
+              unitPrice: Number.isFinite(numeric) ? numeric : 0,
+            },
+          ],
+        }),
+      }, session.accessToken);
+      setMsg("Xero-ready invoice draft generated.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to generate invoice");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -55,21 +96,23 @@ export default function AdminBillingPage() {
 
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Create / Send Invoice</h2>
-        <p className="mt-1 text-sm text-slate-600">Use trip IDs from the table below. Xero integration coming soon.</p>
+        <p className="mt-1 text-sm text-slate-600">Use completed trip details below to generate Xero-ready invoice drafts (NDIS supported).</p>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <Input placeholder="Trip ID" />
-          <Input placeholder="Client name" />
-          <Select>
+          <Input placeholder="Trip ID" value={tripId} onChange={(e) => setTripId(e.target.value)} />
+          <Input placeholder="Recipient User ID" value={recipientId} onChange={(e) => setRecipientId(e.target.value)} />
+          <Input placeholder="Client name" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+          <Select value={scheme} onChange={(e) => setScheme(e.target.value)}>
             <option>NDIS</option>
             <option>Private Pay</option>
             <option>Partner Invoice</option>
           </Select>
-          <Input placeholder="Amount" />
+          <Input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button disabled>Generate Xero-ready Invoice (coming soon)</Button>
-          <Button variant="outline" disabled>Send to Plan Manager</Button>
+          <Button onClick={generateInvoice} disabled={busy}>{busy ? "Generating..." : "Generate Xero-ready Invoice"}</Button>
+          <Button variant="outline" onClick={generateInvoice} disabled={busy}>Send to Plan Manager</Button>
         </div>
+        {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
       </Card>
 
       <Card>

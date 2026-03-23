@@ -27,6 +27,7 @@ export default function PartnerLiveOperationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [msg, setMsg] = useState("");
 
   const filtered = useMemo(() => {
     let out = filter === "all"
@@ -48,14 +49,43 @@ export default function PartnerLiveOperationsPage() {
     return out;
   }, [bookings, filter, searchQuery]);
 
-  useEffect(() => {
+  async function loadBoard() {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<{ items: Booking[] }>("/partner/bookings", undefined, session.accessToken)
+    setLoading(true);
+    await apiJson<{ items: Booking[] }>("/partner/bookings", undefined, session.accessToken)
       .then((r) => setBookings(r.items))
       .catch(() => {})
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadBoard().catch(() => undefined);
   }, []);
+
+  async function createOpsTicket(kind: "care_team" | "admin_dispatch") {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    const first = filtered[0] || bookings[0];
+    if (!first) {
+      setMsg("No trip available for escalation.");
+      return;
+    }
+    setMsg("");
+    try {
+      await apiJson("/partner/support-tickets", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: kind === "care_team" ? "Care Team Alert" : "Dispatch Escalation",
+          message: `Trip ${first.id}: ${first.pickup} -> ${first.dropoff} | Rider: ${first.rider_name || "-"} | Driver: ${first.driver_name || first.driver_email || "Unassigned"}`,
+          priority: "high",
+        }),
+      }, session.accessToken);
+      setMsg(kind === "care_team" ? "Care team notified via support ticket." : "Escalated to dispatch queue.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to create escalation");
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -76,7 +106,7 @@ export default function PartnerLiveOperationsPage() {
             <option value="active">In Transit</option>
             <option value="completed">Completed</option>
           </Select>
-          <Button variant="outline" onClick={() => window.location.reload()}>Refresh Board</Button>
+          <Button variant="outline" onClick={() => loadBoard()}>Refresh Board</Button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {loading ? (
@@ -110,9 +140,10 @@ export default function PartnerLiveOperationsPage() {
         <h3 className="font-semibold text-[var(--color-primary)]">Intervention Queue</h3>
         <p className="mt-2 text-sm text-slate-600">Escalation and alerts coming soon.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button>Notify Care Team</Button>
-          <Button variant="outline">Escalate to Admin Dispatch</Button>
+          <Button onClick={() => createOpsTicket("care_team")}>Notify Care Team</Button>
+          <Button variant="outline" onClick={() => createOpsTicket("admin_dispatch")}>Escalate to Admin Dispatch</Button>
         </div>
+        {msg ? <p className="mt-2 text-xs text-slate-600">{msg}</p> : null}
       </Card>
     </div>
   );

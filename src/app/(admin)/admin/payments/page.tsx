@@ -19,6 +19,15 @@ type BillingItem = {
 export default function AdminPaymentsPage() {
   const [items, setItems] = useState<BillingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tripId, setTripId] = useState("");
+  const [recipientId, setRecipientId] = useState("");
+  const [payerName, setPayerName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("bank_transfer");
+  const [status, setStatus] = useState("confirmed");
+  const [notes, setNotes] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const session = getAuthSession();
@@ -30,6 +39,38 @@ export default function AdminPaymentsPage() {
   }, []);
 
   const completedCount = items.length;
+
+  async function confirmManualPayment() {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    if (!recipientId || !amount) {
+      setMsg("Recipient user ID and amount are required.");
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    try {
+      await apiJson("/admin/invoices/manual", {
+        method: "POST",
+        body: JSON.stringify({
+          recipientId,
+          notes: `Manual payment confirmation | trip=${tripId || "N/A"} | payer=${payerName || "N/A"} | method=${method} | status=${status} | ${notes || ""}`,
+          items: [
+            {
+              description: `Manual payment receipt for trip ${tripId || "N/A"}`,
+              quantity: 1,
+              unitPrice: Number(amount) || 0,
+            },
+          ],
+        }),
+      }, session.accessToken);
+      setMsg("Manual payment recorded as billing document.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to confirm payment");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -53,29 +94,31 @@ export default function AdminPaymentsPage() {
 
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Manual Payment Confirmation</h2>
-        <p className="mt-1 text-sm text-slate-600">Link payments to trip IDs. Full payment gateway coming soon.</p>
+        <p className="mt-1 text-sm text-slate-600">Link payments to trips and store them as invoice-backed records.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <Input placeholder="Trip ID" />
-          <Input placeholder="Payer name" />
-          <Input placeholder="Amount" />
-          <Select>
-            <option>Method: Bank transfer</option>
-            <option>Method: Cash</option>
-            <option>Method: Card terminal</option>
+          <Input placeholder="Trip ID" value={tripId} onChange={(e) => setTripId(e.target.value)} />
+          <Input placeholder="Recipient User ID" value={recipientId} onChange={(e) => setRecipientId(e.target.value)} />
+          <Input placeholder="Payer name" value={payerName} onChange={(e) => setPayerName(e.target.value)} />
+          <Input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+            <option value="bank_transfer">Method: Bank transfer</option>
+            <option value="cash">Method: Cash</option>
+            <option value="card_terminal">Method: Card terminal</option>
           </Select>
           <Input className="md:col-span-2" placeholder="Transaction reference" />
           <Input type="date" />
-          <Select>
-            <option>Status: Pending confirmation</option>
-            <option>Status: Confirmed</option>
-            <option>Status: Rejected</option>
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="pending_confirmation">Status: Pending confirmation</option>
+            <option value="confirmed">Status: Confirmed</option>
+            <option value="rejected">Status: Rejected</option>
           </Select>
-          <Textarea className="md:col-span-4" placeholder="Confirmation notes" />
+          <Textarea className="md:col-span-4" placeholder="Confirmation notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button disabled>Confirm Manual Payment (coming soon)</Button>
-          <Button variant="outline" disabled>Upload Receipt</Button>
+          <Button onClick={confirmManualPayment} disabled={busy}>{busy ? "Saving..." : "Confirm Manual Payment"}</Button>
+          <Button variant="outline" onClick={confirmManualPayment} disabled={busy}>Upload Receipt</Button>
         </div>
+        {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
       </Card>
 
       <Card>

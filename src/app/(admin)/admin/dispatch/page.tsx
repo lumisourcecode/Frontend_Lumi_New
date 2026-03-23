@@ -33,21 +33,62 @@ export default function AdminDispatchPage() {
   const [manualDriverId, setManualDriverId] = useState("");
   const [assignTripId, setAssignTripId] = useState("");
   const [assignDriverId, setAssignDriverId] = useState("");
+  const [assigning, setAssigning] = useState(false);
   const [msg, setMsg] = useState("");
 
   const session = getAuthSession();
 
-  useEffect(() => {
+  async function refreshBoard() {
     if (!session?.accessToken) return;
     const t = session.accessToken;
-    apiJson<{ items: typeof riders }>("/admin/riders", undefined, t).then((r) => setRiders(r.items)).catch(() => {});
-    apiJson<{ items: typeof drivers }>("/admin/drivers", undefined, t).then((r) => setDrivers(r.items)).catch(() => {});
-    apiJson<{ items: typeof bookings }>("/admin/bookings", undefined, t).then((r) => setBookings(r.items)).catch(() => {});
-    apiJson<{ items: typeof trips }>("/admin/trips", undefined, t).then((r) => setTrips(r.items)).catch(() => {});
+    await Promise.all([
+      apiJson<{ items: typeof riders }>("/admin/riders", undefined, t).then((r) => setRiders(r.items)).catch(() => {}),
+      apiJson<{ items: typeof drivers }>("/admin/drivers", undefined, t).then((r) => setDrivers(r.items)).catch(() => {}),
+      apiJson<{ items: typeof bookings }>("/admin/bookings", undefined, t).then((r) => setBookings(r.items)).catch(() => {}),
+      apiJson<{ items: typeof trips }>("/admin/trips", undefined, t).then((r) => setTrips(r.items)).catch(() => {}),
+    ]);
+  }
+
+  useEffect(() => {
+    refreshBoard().catch(() => undefined);
   }, [session?.accessToken]);
 
   const conflicts = useMemo(() => detectScheduleConflicts(bookingsSeed, timeOffSeed), []);
   const pendingTrips = trips.filter((t) => t.state === "pending_assignment" || !t.driver_id);
+  const approvedDrivers = drivers.filter((d) => d.verification_status === "Approved");
+
+  async function assignTrip(tripId: string, driverId: string) {
+    if (!session?.accessToken) return;
+    await apiJson(`/admin/trips/${tripId}/assign`, {
+      method: "PATCH",
+      body: JSON.stringify({ driverId }),
+    }, session.accessToken);
+  }
+
+  async function runAutoAssign(limit = 10) {
+    if (!session?.accessToken || approvedDrivers.length === 0 || pendingTrips.length === 0) {
+      setMsg("No pending trips or no approved drivers available.");
+      return;
+    }
+    setAssigning(true);
+    setMsg("");
+    try {
+      const toAssign = pendingTrips.slice(0, limit);
+      for (let i = 0; i < toAssign.length; i += 1) {
+        const trip = toAssign[i];
+        const driver = matchingMode === "roundRobin"
+          ? approvedDrivers[i % approvedDrivers.length]
+          : approvedDrivers[0];
+        await assignTrip(trip.id, driver.id);
+      }
+      await refreshBoard();
+      setMsg(`Auto-assigned ${Math.min(limit, toAssign.length)} pending trip(s) using ${matchingMode === "roundRobin" ? "round-robin" : "proximity-priority"} mode.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Auto-assignment failed");
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -99,6 +140,14 @@ export default function AdminDispatchPage() {
             }}
           >
             Optimize Tours
+          </Button>
+          <Button
+            className="mt-2"
+            variant="outline"
+            disabled={assigning || pendingTrips.length === 0 || approvedDrivers.length === 0}
+            onClick={() => runAutoAssign(10)}
+          >
+            {assigning ? "Auto-assigning..." : "Auto Assign Pending Trips"}
           </Button>
           {optimized.length > 0 ? (
             <ul className="mt-2 list-disc pl-5 text-xs text-emerald-700">
@@ -186,8 +235,7 @@ export default function AdminDispatchPage() {
                 setManualDropoff("");
                 setManualScheduledAt("");
                 setManualDriverId("");
-                apiJson<{ items: typeof bookings }>("/admin/bookings", undefined, session.accessToken).then((r) => setBookings(r.items));
-                apiJson<{ items: typeof trips }>("/admin/trips", undefined, session.accessToken).then((r) => setTrips(r.items));
+                await refreshBoard();
               } catch (e) {
                 setMsg(e instanceof Error ? e.message : "Failed");
               }
@@ -220,14 +268,11 @@ export default function AdminDispatchPage() {
             onClick={async () => {
               if (!session?.accessToken || !assignTripId || !assignDriverId) return;
               try {
-                await apiJson(`/admin/trips/${assignTripId}/assign`, {
-                  method: "PATCH",
-                  body: JSON.stringify({ driverId: assignDriverId }),
-                }, session.accessToken);
+                await assignTrip(assignTripId, assignDriverId);
                 setMsg("Driver assigned.");
                 setAssignTripId("");
                 setAssignDriverId("");
-                apiJson<{ items: typeof trips }>("/admin/trips", undefined, session.accessToken).then((r) => setTrips(r.items));
+                await refreshBoard();
               } catch (e) {
                 setMsg(e instanceof Error ? e.message : "Failed");
               }
@@ -269,8 +314,7 @@ export default function AdminDispatchPage() {
                               method: "PATCH",
                               body: JSON.stringify({ status: "cancelled" }),
                             }, session.accessToken);
-                            apiJson<{ items: typeof bookings }>("/admin/bookings", undefined, session.accessToken).then((r) => setBookings(r.items));
-                            apiJson<{ items: typeof trips }>("/admin/trips", undefined, session.accessToken).then((r) => setTrips(r.items));
+                            await refreshBoard();
                           } catch {}
                         }}
                       >
