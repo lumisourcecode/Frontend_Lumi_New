@@ -12,22 +12,20 @@ import type {
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-2xl px-6 text-sm font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 disabled:pointer-events-none disabled:opacity-40 active:scale-[0.98]",
+  "inline-flex items-center justify-center rounded-full px-5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
   {
     variants: {
       variant: {
         primary:
-          "bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-[0_10px_20px_-5px_rgba(14,165,233,0.3)] hover:shadow-[0_15px_30px_-5px_rgba(14,165,233,0.4)] hover:brightness-110",
+          "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-2)] text-white shadow-[0_8px_20px_rgba(15,23,42,0.25)] hover:translate-y-[-1px] hover:shadow-[0_12px_24px_rgba(15,23,42,0.3)] focus-visible:ring-[var(--color-accent)]",
         outline:
-          "border border-white/10 bg-white/5 text-slate-100 backdrop-blur-md hover:bg-white/10 hover:border-white/20",
-        soft: "bg-sky-500/10 text-sky-400 hover:bg-sky-500/20",
-        ghost: "text-slate-400 hover:text-white hover:bg-white/5",
-        danger: "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20",
+          "border border-slate-300 bg-white text-[var(--color-primary)] shadow-sm hover:border-[var(--color-primary-2)] hover:bg-slate-50 focus-visible:ring-[var(--color-accent)]",
+        soft: "bg-slate-100 text-[var(--color-primary)] hover:bg-slate-200 focus-visible:ring-[var(--color-accent)]",
+        danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
       },
       size: {
-        default: "h-12",
-        sm: "h-9 px-4 text-xs",
-        lg: "h-14 px-8 text-base",
+        default: "min-h-11",
+        sm: "min-h-8 px-3 text-xs",
       },
     },
     defaultVariants: {
@@ -50,7 +48,7 @@ export function Input({ className, ...props }: InputProps) {
   return (
     <input
       className={cn(
-        "h-12 w-full rounded-2xl border border-white/5 bg-slate-900/50 px-4 text-sm text-slate-100 placeholder:text-slate-500 transition-all focus:bg-slate-900 focus:border-sky-500/50 focus:ring-4 focus:ring-sky-500/10 outline-none",
+        "min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]",
         className,
       )}
       {...props}
@@ -66,7 +64,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "h-12 w-full rounded-2xl border border-white/5 bg-slate-900/50 px-4 text-sm text-slate-100 transition-all focus:bg-slate-900 focus:border-sky-500/50 focus:ring-4 focus:ring-sky-500/10 outline-none appearance-none",
+        "min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]",
         className,
       )}
       {...props}
@@ -83,7 +81,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "min-h-[100px] w-full rounded-2xl border border-white/5 bg-slate-900/50 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 transition-all focus:bg-slate-900 focus:border-sky-500/50 focus:ring-4 focus:ring-sky-500/10 outline-none",
+        "min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]",
         className,
       )}
       {...props}
@@ -97,50 +95,9 @@ export function Card({
 }: HTMLAttributes<HTMLElement>) {
   return (
     <section
-      className={cn("premium-card p-6", className)}
+      className={cn("rounded-3xl border border-slate-200 bg-white p-5 shadow-sm", className)}
       {...props}
     />
-  );
-}
-
-export function Label({ className, ...props }: HTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label
-      className={cn(
-        "text-sm font-medium leading-none text-slate-200 peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-type SwitchProps = {
-  checked?: boolean;
-  onCheckedChange?: (checked: boolean) => void;
-  className?: string;
-};
-
-export function Switch({ checked = false, onCheckedChange, className }: SwitchProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onCheckedChange?.(!checked)}
-      className={cn(
-        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50",
-        checked ? "bg-sky-500" : "bg-slate-700",
-        className,
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none absolute top-0.5 left-0.5 inline-block h-6 w-6 rounded-full bg-white shadow transition-transform duration-200",
-          checked ? "translate-x-5" : "translate-x-0",
-        )}
-      />
-    </button>
   );
 }
 
@@ -149,20 +106,18 @@ export function Badge({
   tone = "default",
   ...props
 }: HTMLAttributes<HTMLSpanElement> & {
-  tone?: "default" | "certified" | "pending" | "danger" | "info" | "success";
+  tone?: "default" | "certified" | "pending" | "danger";
 }) {
   const tones: Record<string, string> = {
-    default: "bg-slate-800/50 text-slate-400 border border-white/5",
-    certified: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    success: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    pending: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-    danger: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-    info: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+    default: "bg-slate-100 text-slate-700",
+    certified: "bg-emerald-100 text-emerald-700",
+    pending: "bg-amber-100 text-amber-700",
+    danger: "bg-red-100 text-red-700",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
         tones[tone],
         className,
       )}
@@ -171,22 +126,11 @@ export function Badge({
   );
 }
 
-export function Progress({
-  value = 0,
-  className,
-  indicatorClassName,
-}: {
-  value?: number;
-  className?: string;
-  indicatorClassName?: string;
-}) {
+export function Progress({ value = 0 }: { value?: number }) {
   return (
-    <div className={cn("h-1.5 w-full rounded-full bg-slate-800 overflow-hidden", className)}>
+    <div className="h-2 w-full rounded-full bg-slate-200">
       <div
-        className={cn(
-          "h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(14,165,233,0.5)]",
-          indicatorClassName,
-        )}
+        className="h-2 rounded-full bg-[var(--color-accent)] transition-all"
         style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
       />
     </div>

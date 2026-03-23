@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, User, Phone, ChevronLeft, ShieldCheck, ArrowRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button, Card, Input, Badge } from "@/components/ui/primitives";
+import { Eye, EyeOff } from "lucide-react";
+import { Button, Card, Input } from "@/components/ui/primitives";
 import { apiJson, setAuthSession } from "@/lib/api-client";
 import { PasswordStrength, getPasswordStrength } from "@/components/auth/password-strength";
 import { cn } from "@/lib/utils";
@@ -37,12 +36,6 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [phoneMode, setPhoneMode] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [phoneLoading, setPhoneLoading] = useState(false);
-
   const canRegister = allowRegister && portal !== "admin";
   const { score } = getPasswordStrength(password);
   const isPasswordStrong = score >= 3 && password.length >= 8;
@@ -53,7 +46,7 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
     if (isRegister && email !== emailConfirm) return "Emails do not match";
     if (!password) return "Password is required";
     if (isRegister && password !== passwordConfirm) return "Passwords do not match";
-    if (isRegister && !isPasswordStrong) return "Use a stronger password";
+    if (isRegister && !isPasswordStrong) return "Use a stronger password (see suggestions)";
     return null;
   }
 
@@ -86,8 +79,10 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
             });
 
       setAuthSession({ accessToken: data.accessToken, user: data.user });
-      const paths = { admin: "/admin/dashboard", partner: "/partner/dashboard", driver: "/driver/onboard", rider: "/rider/dashboard" };
-      router.push(paths[portal]);
+      if (portal === "admin") router.push("/admin/dashboard");
+      else if (portal === "partner") router.push("/partner/dashboard");
+      else if (portal === "driver") router.push("/driver/onboard");
+      else router.push("/rider/dashboard");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Authentication failed");
@@ -98,236 +93,230 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
 
   function handleGoogle() {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) { setError("Google sign-in not configured."); return; }
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    if (!clientId) {
+      setError("Google sign-in not configured. Use email above.");
+      return;
+    }
+    const redirectUri = typeof window !== "undefined"
+      ? `${window.location.origin}/auth/google/callback`
+      : "";
     const scope = "email profile";
     const state = portal;
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${state}`;
     window.location.href = url;
   }
 
+  const [phoneMode, setPhoneMode] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneLoading, setPhoneLoading] = useState(false);
+
   async function handleSendOtp() {
-    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) { setError("Invalid phone number"); return; }
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) {
+      setError("Enter a valid Australian phone number");
+      return;
+    }
     setPhoneLoading(true);
     setError("");
     try {
-      await apiJson("/auth/send-otp", { method: "POST", body: JSON.stringify({ phone: phone.replace(/\D/g, ""), portal }) });
+      await apiJson("/auth/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ phone: phone.replace(/\D/g, ""), portal }),
+      });
       setOtpSent(true);
-    } catch (e) { setError(e instanceof Error ? e.message : "Failed to send code"); }
-    finally { setPhoneLoading(false); }
+      setOtpCode("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to send code");
+    } finally {
+      setPhoneLoading(false);
+    }
   }
 
   async function handleVerifyOtp() {
-    if (otpCode.length !== 6) { setError("Enter 6-digit code"); return; }
+    if (otpCode.length !== 6) {
+      setError("Enter the 6-digit code");
+      return;
+    }
     setPhoneLoading(true);
     setError("");
     try {
       const data = await apiJson<{ accessToken: string; user: { id: string; email: string; roles: string[] } }>("/auth/verify-otp", {
-        method: "POST", body: JSON.stringify({ phone: phone.replace(/\D/g, ""), code: otpCode, portal })
+        method: "POST",
+        body: JSON.stringify({ phone: phone.replace(/\D/g, ""), code: otpCode, portal }),
       });
       setAuthSession({ accessToken: data.accessToken, user: data.user });
-      router.push(portal === "admin" ? "/admin/dashboard" : portal === "partner" ? "/partner/dashboard" : portal === "driver" ? "/driver/onboard" : "/rider/dashboard");
-    } catch (e) { setError(e instanceof Error ? e.message : "Invalid code"); }
-    finally { setPhoneLoading(false); }
+      if (portal === "admin") router.push("/admin/dashboard");
+      else if (portal === "partner") router.push("/partner/dashboard");
+      else if (portal === "driver") router.push("/driver/onboard");
+      else router.push("/rider/dashboard");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invalid code");
+    } finally {
+      setPhoneLoading(false);
+    }
+  }
+
+  function handlePhone() {
+    setPhoneMode(true);
+    setError("");
+    setOtpSent(false);
   }
 
   return (
-    <Card className="w-full max-w-md border-white/5 bg-slate-900/40 backdrop-blur-2xl p-8 relative overflow-hidden">
-      {/* Visual Accents */}
-      <div className="absolute -top-24 -right-24 size-48 bg-sky-500/10 blur-[60px] rounded-full pointer-events-none" />
-      
-      <div className="relative z-10 space-y-8">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-             <h1 className="text-3xl font-black text-white">{PORTAL_LABELS[portal]}</h1>
-             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-               {isRegister ? "Create Account" : "Access Portal"}
-             </p>
-          </div>
-          <Badge tone="info" className="bg-sky-500/10 text-[10px]">{portal}</Badge>
+    <Card className="w-full max-w-sm border-0 bg-white p-8 shadow-sm">
+      <h1 className="text-2xl font-semibold text-slate-900">
+        {PORTAL_LABELS[portal]} {isRegister ? "Sign up" : "Sign in"}
+      </h1>
+
+      {portal === "admin" && (
+        <p className="mt-2 text-sm text-slate-500">
+          Admin accounts are created by super admin only.
+        </p>
+      )}
+
+      {portal === "partner" && canRegister && (
+        <p className="mt-2 text-sm text-slate-500">
+          Use your official work email.
+        </p>
+      )}
+
+      {portal === "driver" && canRegister && (
+        <p className="mt-2 text-sm text-slate-500">
+          Verify your email after sign up to continue.
+        </p>
+      )}
+
+      {canRegister && (
+        <div className="mt-6 flex rounded-lg bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setIsRegister(false)}
+            className={cn(
+              "flex-1 rounded-md py-2 text-sm font-medium transition",
+              !isRegister ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+            )}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsRegister(true)}
+            className={cn(
+              "flex-1 rounded-md py-2 text-sm font-medium transition",
+              isRegister ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900",
+            )}
+          >
+            Sign up
+          </button>
+        </div>
+      )}
+
+      <div className="mt-6 space-y-4">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+          <Input
+            placeholder="you@example.com"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-11 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white"
+          />
         </div>
 
-        {canRegister && !phoneMode && (
-          <div className="flex p-1 bg-slate-950/50 rounded-2xl border border-white/5">
-            <button
-              onClick={() => setIsRegister(false)}
-              className={cn("flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all rounded-xl", !isRegister ? "bg-sky-500 text-white shadow-lg" : "text-slate-400 hover:text-slate-100")}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setIsRegister(true)}
-              className={cn("flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all rounded-xl", isRegister ? "bg-sky-500 text-white shadow-lg" : "text-slate-400 hover:text-slate-100")}
-            >
-              Sign Up
-            </button>
+        {isRegister && canRegister && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm email</label>
+            <Input
+              placeholder="you@example.com"
+              type="email"
+              value={emailConfirm}
+              onChange={(e) => setEmailConfirm(e.target.value)}
+              className={cn(
+                "h-11 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white",
+                emailConfirm && email !== emailConfirm && "border-red-300",
+              )}
+            />
           </div>
         )}
 
-        <AnimatePresence mode="wait">
-          {!phoneMode ? (
-            <motion.div 
-              key="email" 
-              initial={{ opacity: 0, x: -10 }} 
-              animate={{ opacity: 1, x: 0 }} 
-              exit={{ opacity: 0, x: 10 }}
-              className="space-y-5"
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Password</label>
+          <div className="relative">
+            <Input
+              placeholder={isRegister ? "Create password (8+ chars, symbol, number)" : "Enter password"}
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
+              className="h-11 rounded-lg border-slate-200 bg-slate-50/50 pr-10 focus:bg-white"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
-              <div className="space-y-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center gap-2">
-                    <Mail className="size-3" /> Email Address
-                 </label>
-                 <Input
-                   placeholder="you@lumiride.com.au"
-                   type="email"
-                   value={email}
-                   onChange={(e) => setEmail(e.target.value)}
-                 />
-              </div>
-
-              {isRegister && (
-                <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Confirm Email</label>
-                   <Input
-                     placeholder="Confirm your email"
-                     type="email"
-                     value={emailConfirm}
-                     onChange={(e) => setEmailConfirm(e.target.value)}
-                   />
-                </div>
-              )}
-
-              <div className="space-y-2">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center justify-between">
-                    <span className="flex items-center gap-2"><Lock className="size-3" /> Password</span>
-                    {!isRegister && (
-                      <Link href={`/forgot-password?portal=${portal}`} className="text-sky-400 hover:text-sky-300">Forgot?</Link>
-                    )}
-                 </label>
-                 <div className="relative group">
-                   <Input
-                     placeholder={isRegister ? "Min 8 chars, 1 symbol" : "Enter password"}
-                     type={showPassword ? "text" : "password"}
-                     value={password}
-                     onChange={(e) => setPassword(e.target.value)}
-                     onFocus={() => setPasswordFocused(true)}
-                     onBlur={() => setPasswordFocused(false)}
-                     className="pr-12"
-                   />
-                   <button
-                     type="button"
-                     onClick={() => setShowPassword(!showPassword)}
-                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-sky-400 transition-colors"
-                   >
-                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                   </button>
-                 </div>
-                 {isRegister && (password.length > 0 || passwordFocused) && (
-                   <div className="pt-2">
-                     <PasswordStrength password={password} inline />
-                   </div>
-                 )}
-              </div>
-
-              {isRegister && (
-                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5">
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Confirm Password</label>
-                     <Input
-                       placeholder="Repeat password"
-                       type={showPassword ? "text" : "password"}
-                       value={passwordConfirm}
-                       onChange={(e) => setPasswordConfirm(e.target.value)}
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center gap-2">
-                       <User className="size-3" /> Full Name
-                     </label>
-                     <Input
-                       placeholder="Your Name"
-                       value={fullName}
-                       onChange={(e) => setFullName(e.target.value)}
-                     />
-                   </div>
-                </motion.div>
-              )}
-
-              <Button
-                disabled={loading}
-                className="w-full h-12 shadow-xl"
-                onClick={() => submitAuth(isRegister ? "register" : "login")}
-              >
-                {loading ? "Authenticating..." : isRegister ? "Complete Sign Up" : "Enter Portal"}
-                <ArrowRight className="size-4 ml-2" />
-              </Button>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="phone" 
-              initial={{ opacity: 0, x: 10 }} 
-              animate={{ opacity: 1, x: 0 }} 
-              exit={{ opacity: 0, x: -10 }}
-              className="space-y-6"
-            >
-              <div className="space-y-5">
-                {!otpSent ? (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center gap-2">
-                      <Phone className="size-3" /> Phone Number (AU)
-                    </label>
-                    <Input
-                      placeholder="04XX XXX XXX"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                    />
-                    <Button disabled={phoneLoading} onClick={handleSendOtp} className="w-full mt-4">
-                      {phoneLoading ? "Sending Code..." : "Send SMS Login Code"}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center gap-2">
-                      <ShieldCheck className="size-3" /> Verification Code
-                    </label>
-                    <Input
-                      placeholder="6-digit code"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    />
-                    <Button disabled={phoneLoading || otpCode.length !== 6} onClick={handleVerifyOtp} className="w-full">
-                      {phoneLoading ? "Verifying..." : "Verify & Sign In"}
-                    </Button>
-                    <button onClick={() => setOtpSent(false)} className="w-full text-center text-xs text-sky-400 font-bold uppercase tracking-widest">Resend SMS</button>
-                  </div>
-                )}
-              </div>
-              <button 
-                onClick={() => setPhoneMode(false)}
-                className="w-full flex items-center justify-center gap-2 text-[10px] font-bold text-slate-500 uppercase hover:text-white transition-colors"
-              >
-                <ChevronLeft className="size-3" /> Back to Email
-              </button>
-            </motion.div>
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+          {isRegister && (password.length > 0 || passwordFocused) && (
+            <PasswordStrength password={password} inline />
           )}
-        </AnimatePresence>
+        </div>
 
-        {/* Alternatives */}
-        {(portal === "rider" || portal === "driver") && !phoneMode && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="h-px bg-white/5 flex-1" />
-              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">or</span>
-              <div className="h-px bg-white/5 flex-1" />
+        {isRegister && canRegister && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm password</label>
+            <Input
+              placeholder="Confirm password"
+              type={showPassword ? "text" : "password"}
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              className={cn(
+                "h-11 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white",
+                passwordConfirm && password !== passwordConfirm && "border-red-300",
+              )}
+            />
+          </div>
+        )}
+
+        {isRegister && canRegister && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Full name <span className="text-slate-400">(optional)</span></label>
+            <Input
+              placeholder="Your name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="h-11 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white"
+            />
+          </div>
+        )}
+
+        <Button
+          className="h-11 w-full rounded-lg font-medium"
+          disabled={loading}
+          onClick={() => submitAuth(isRegister && canRegister ? "register" : "login")}
+        >
+          {loading ? "Please wait..." : isRegister && canRegister ? "Create account" : "Sign in"}
+        </Button>
+
+        {(portal === "rider" || portal === "driver") && canRegister && !phoneMode && (
+          <>
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <p className="relative text-center text-xs text-slate-500">or continue with</p>
             </div>
-            
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <Button
                 variant="outline"
-                className="flex-1 rounded-2xl h-11"
+                className="h-11 flex-1 rounded-lg border-slate-200"
                 onClick={handleGoogle}
               >
-                <svg className="size-4 mr-2" viewBox="0 0 24 24">
+                <svg className="mr-2 size-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -337,29 +326,70 @@ export function PortalLoginForm({ portal, allowRegister = true }: PortalLoginFor
               </Button>
               <Button
                 variant="outline"
-                className="flex-1 rounded-2xl h-11"
-                onClick={() => setPhoneMode(true)}
+                className="h-11 flex-1 rounded-lg border-slate-200"
+                onClick={handlePhone}
               >
-                <Phone className="size-4 mr-2 text-slate-400" /> Phone
+                Phone
               </Button>
             </div>
+          </>
+        )}
+
+        {(portal === "rider" || portal === "driver") && canRegister && phoneMode && (
+          <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+            <p className="text-sm font-medium text-slate-700">Sign in with phone</p>
+            {!otpSent ? (
+              <>
+                <Input
+                  placeholder="04XX XXX XXX (Australian number)"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                  className="h-11"
+                />
+                <div className="flex gap-2">
+                  <Button disabled={phoneLoading} onClick={handleSendOtp} className="flex-1">
+                    {phoneLoading ? "Sending..." : "Send code"}
+                  </Button>
+                  <Button variant="outline" onClick={() => setPhoneMode(false)}>Back</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="Enter 6-digit code"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="h-11"
+                />
+                <div className="flex gap-2">
+                  <Button disabled={phoneLoading || otpCode.length !== 6} onClick={handleVerifyOtp} className="flex-1">
+                    {phoneLoading ? "Verifying..." : "Verify"}
+                  </Button>
+                  <Button variant="outline" onClick={() => setOtpSent(false)}>Resend</Button>
+                  <Button variant="outline" onClick={() => { setPhoneMode(false); setOtpSent(false); }}>Back</Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {error && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
-             <p className="text-xs font-bold text-rose-400 text-center">{error}</p>
-          </motion.div>
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
         )}
 
-        <div className="pt-4 text-center">
-           <Link 
-             href="/login" 
-             className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] hover:text-white transition-colors"
-           >
-              ← Portal Selection
-           </Link>
-        </div>
+        <Link
+          href={`/forgot-password?portal=${portal}`}
+          className="block text-center text-sm text-slate-500 hover:text-slate-700"
+        >
+          Forgot password?
+        </Link>
+
+        <Link
+          href="/login"
+          className="block text-center text-sm text-slate-500 hover:text-slate-700"
+        >
+          ← Back to portal selection
+        </Link>
       </div>
     </Card>
   );

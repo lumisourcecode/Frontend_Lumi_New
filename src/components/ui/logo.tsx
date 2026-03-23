@@ -19,8 +19,8 @@ const logoPaths = [
 ];
 
 const fillColor = {
-  light: "#FFFFFF",
-  dark: "#0F172A",
+  light: "#EBE6F1",
+  dark: "#1e1b4b",
 };
 
 export function Logo({ href = "/", className = "h-10 w-auto", variant = "light" }: LogoProps) {

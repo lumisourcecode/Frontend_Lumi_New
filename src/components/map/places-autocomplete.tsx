@@ -44,23 +44,19 @@ export function PlacesAutocomplete({
   useEffect(() => {
     if (!apiKey || !scriptLoaded || !inputRef.current || typeof google === "undefined") return;
 
-    try {
-      const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-        componentRestrictions: { country: "au" },
-        fields: ["formatted_address", "geometry", "name"],
-        types: ["establishment", "geocode"],
-      });
+    const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: "au" },
+      fields: ["formatted_address", "geometry", "name"],
+      types: ["establishment", "geocode"],
+    });
 
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        const addr = place.formatted_address || place.name || "";
-        const lat = place.geometry?.location?.lat();
-        const lng = place.geometry?.location?.lng();
-        onChange(addr, { lat, lng, formatted_address: addr });
-      });
-    } catch (e) {
-      console.error("Google Maps Autocomplete failed to initialize", e);
-    }
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      const addr = place.formatted_address || place.name || "";
+      const lat = place.geometry?.location?.lat();
+      const lng = place.geometry?.location?.lng();
+      onChange(addr, { lat, lng, formatted_address: addr });
+    });
   }, [apiKey, scriptLoaded, onChange]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -83,32 +79,43 @@ export function PlacesAutocomplete({
     setShowSuggestions(false);
   }
 
-  const inputClasses = cn(
-    "h-12 w-full rounded-2xl border border-white/5 bg-slate-900/50 px-4 text-sm text-slate-100 placeholder:text-slate-500 transition-all focus:bg-slate-900 focus:border-sky-500/50 focus:ring-4 focus:ring-sky-500/10 outline-none",
-    className
-  );
-
-  return (
-    <div className="relative w-full">
+  if (apiKey && scriptLoaded) {
+    return (
       <input
         ref={inputRef}
         id={id}
         type="text"
         value={value}
         onChange={handleChange}
-        onFocus={() => !apiKey && value.length >= 2 && setShowSuggestions(suggestions.length > 0)}
         placeholder={placeholder}
-        className={inputClasses}
+        className={cn("h-11 rounded-lg border border-slate-200 bg-slate-50/50 px-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]", className)}
+        autoComplete="off"
+      />
+    );
+  }
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        id={id}
+        type="text"
+        value={value}
+        onChange={handleChange}
+        onFocus={() => value.length >= 2 && setShowSuggestions(suggestions.length > 0)}
+        placeholder={placeholder}
+        list={id ? `${id}-list` : undefined}
+        className={cn("h-11 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]", className)}
         autoComplete="off"
       />
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-50 mt-2 max-h-60 w-full overflow-auto rounded-2xl border border-white/10 bg-slate-900/90 p-1 shadow-2xl backdrop-blur-xl">
+        <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
           {suggestions.map((s) => (
             <li key={s}>
               <button
                 type="button"
                 onClick={() => selectSuggestion(s)}
-                className="w-full px-4 py-3 text-left text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white rounded-xl"
+                className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
               >
                 {s}
               </button>
@@ -117,8 +124,8 @@ export function PlacesAutocomplete({
         </ul>
       )}
       {!apiKey && (
-        <p className="mt-1.5 px-1 text-[10px] font-medium text-amber-500/80 uppercase tracking-wider">
-          Offline Mode: Using local presets
+        <p className="mt-1 text-xs text-slate-500">
+          Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for full Google Places autocomplete
         </p>
       )}
     </div>
