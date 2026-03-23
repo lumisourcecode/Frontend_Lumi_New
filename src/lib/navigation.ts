@@ -41,6 +41,7 @@ export const navigation = {
     { label: "Live Operations", href: "/partner/live-operations" },
     { label: "Roster", href: "/partner/roster" },
     { label: "Clients", href: "/partner/clients" },
+    { label: "Employees", href: "/partner/employees" },
     { label: "Bulk Upload", href: "/partner/bulk-upload" },
     { label: "Billing", href: "/partner/billing" },
     { label: "Reports", href: "/partner/reports" },

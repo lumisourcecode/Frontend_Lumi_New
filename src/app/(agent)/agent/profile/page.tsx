@@ -5,7 +5,6 @@ import { Button, Card, Input } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
 type Profile = { email: string; orgName: string; contactName: string };
-const PROFILE_DRAFT_KEY = "partner_profile_extended_settings_v1";
 
 export default function PartnerProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -30,40 +29,30 @@ export default function PartnerProfilePage() {
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    apiJson<Profile>("/partner/profile", undefined, session.accessToken)
+    apiJson<
+      Profile & {
+        tenant_slug?: string;
+        logo_url?: string;
+        support_email?: string;
+        support_phone?: string;
+        smtp_host?: string;
+        smtp_port?: number;
+        smtp_username?: string;
+        smtp_from_email?: string;
+      }
+    >("/partner/settings", undefined, session.accessToken)
       .then((p) => {
         setProfile(p);
         setOrgName(p.orgName);
         setContactName(p.contactName);
-        if (typeof window !== "undefined") {
-          const raw = window.localStorage.getItem(PROFILE_DRAFT_KEY);
-          if (raw) {
-            try {
-              const draft = JSON.parse(raw) as {
-                abn?: string;
-                financeEmail?: string;
-                supportPhone?: string;
-                tenantSlug?: string;
-                logoUrl?: string;
-                smtpHost?: string;
-                smtpPort?: string;
-                smtpUser?: string;
-                smtpFrom?: string;
-              };
-              if (draft.abn) setAbn(draft.abn);
-              if (draft.financeEmail) setFinanceEmail(draft.financeEmail);
-              if (draft.supportPhone) setSupportPhone(draft.supportPhone);
-              if (draft.tenantSlug) setTenantSlug(draft.tenantSlug);
-              if (draft.logoUrl) setLogoUrl(draft.logoUrl);
-              if (draft.smtpHost) setSmtpHost(draft.smtpHost);
-              if (draft.smtpPort) setSmtpPort(draft.smtpPort);
-              if (draft.smtpUser) setSmtpUser(draft.smtpUser);
-              if (draft.smtpFrom) setSmtpFrom(draft.smtpFrom);
-            } catch {
-              window.localStorage.removeItem(PROFILE_DRAFT_KEY);
-            }
-          }
-        }
+        setTenantSlug(p.tenant_slug ?? "");
+        setLogoUrl(p.logo_url ?? "");
+        setFinanceEmail(p.support_email ?? "");
+        setSupportPhone(p.support_phone ?? "");
+        setSmtpHost(p.smtp_host ?? "");
+        setSmtpPort(String(p.smtp_port ?? 587));
+        setSmtpUser(p.smtp_username ?? "");
+        setSmtpFrom(p.smtp_from_email ?? "");
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -75,16 +64,23 @@ export default function PartnerProfilePage() {
     setSaving(true);
     setMsg("");
     try {
-      await apiJson("/partner/profile", {
+      await apiJson("/partner/settings", {
         method: "PATCH",
-        body: JSON.stringify({ orgName, contactName }),
+        body: JSON.stringify({
+          orgName,
+          contactName,
+          abn,
+          supportEmail: financeEmail,
+          supportPhone,
+          tenantSlug,
+          logoUrl,
+          smtpHost,
+          smtpPort: Number(smtpPort || 587),
+          smtpUsername: smtpUser,
+          smtpFromEmail: smtpFrom,
+          smtpEnabled: Boolean(smtpHost && smtpUser),
+        }),
       }, session.accessToken);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          PROFILE_DRAFT_KEY,
-          JSON.stringify({ abn, financeEmail, supportPhone, tenantSlug, logoUrl, smtpHost, smtpPort, smtpUser, smtpFrom }),
-        );
-      }
       setMsg("Profile and company settings saved.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to save");
@@ -102,15 +98,15 @@ export default function PartnerProfilePage() {
     }
     setMsg("");
     try {
-      await apiJson("/partner/support-tickets", {
+      await apiJson("/partner/mail/send", {
         method: "POST",
         body: JSON.stringify({
-          subject: `Partner outbound mail: ${mailSubject}`,
-          message: `TENANT=${tenantSlug || "-"} FROM=${smtpFrom || "-"} HOST=${smtpHost || "-"} TO=${mailTo}\n\n${mailBody}`,
-          priority: "normal",
+          to: mailTo,
+          subject: mailSubject,
+          message: mailBody,
         }),
       }, session.accessToken);
-      setMsg("Mail queued via partner communications workflow.");
+      setMsg("Mail sent via partner SMTP workflow.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to queue email");
     }
@@ -160,10 +156,7 @@ export default function PartnerProfilePage() {
             placeholder="Support Phone"
           />
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Extended settings are kept in your browser for quick operations, while core organization
-          details sync to backend.
-        </p>
+        <p className="mt-2 text-xs text-slate-500">All tenant settings on this page sync to backend.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} placeholder="Partner tenant slug (e.g. acme-care)" />
           <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Logo URL (for white-label branding)" />

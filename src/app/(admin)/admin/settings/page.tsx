@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
-const ADMIN_SETTINGS_KEY = "admin_platform_settings_v1";
-
 export default function AdminSettingsPage() {
   const [msg, setMsg] = useState("");
   const [settings, setSettings] = useState({
@@ -32,23 +30,31 @@ export default function AdminSettingsPage() {
   });
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem(ADMIN_SETTINGS_KEY);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as typeof settings;
-          setSettings(parsed);
-        } catch {
-          window.localStorage.removeItem(ADMIN_SETTINGS_KEY);
-        }
-      }
-    }
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    apiJson<{
+      host?: string;
+      port?: number;
+      username?: string;
+      from_email?: string;
+      secure_mode?: string;
+      is_active?: boolean;
+    }>("/admin/settings/smtp", undefined, session.accessToken)
+      .then((smtp) => {
+        setSettings((s) => ({
+          ...s,
+          smtpHost: smtp.host ?? "",
+          smtpPort: String(smtp.port ?? 587),
+          smtpUser: smtp.username ?? "",
+          smtpFrom: smtp.from_email ?? "",
+          smtpSecure: smtp.secure_mode ?? "tls",
+          autoPaymentNotify: smtp.is_active ? "on" : s.autoPaymentNotify,
+        }));
+      })
+      .catch(() => {});
   }, []);
 
   function saveAll(note: string) {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(settings));
-    }
     setMsg(note);
   }
 
@@ -57,10 +63,35 @@ export default function AdminSettingsPage() {
     if (!session?.accessToken) return;
     setMsg("");
     try {
-      await apiJson("/admin/reports/summary", undefined, session.accessToken);
-      saveAll("Settings saved. Test workflow succeeded.");
+      await apiJson("/admin/settings/smtp/test", {
+        method: "POST",
+        body: JSON.stringify({ to: settings.smtpFrom || settings.supportEmail }),
+      }, session.accessToken);
+      saveAll("Settings saved. SMTP test sent.");
     } catch (e) {
-      saveAll(e instanceof Error ? `Settings saved locally. Test workflow failed: ${e.message}` : "Settings saved locally. Test workflow failed.");
+      saveAll(e instanceof Error ? `SMTP test failed: ${e.message}` : "SMTP test failed.");
+    }
+  }
+
+  async function saveSmtpSettings() {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    setMsg("");
+    try {
+      await apiJson("/admin/settings/smtp", {
+        method: "PATCH",
+        body: JSON.stringify({
+          host: settings.smtpHost,
+          port: Number(settings.smtpPort || 587),
+          username: settings.smtpUser,
+          fromEmail: settings.smtpFrom,
+          secureMode: settings.smtpSecure,
+          isActive: true,
+        }),
+      }, session.accessToken);
+      setMsg("SMTP settings saved to backend.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to save SMTP settings");
     }
   }
 
@@ -135,7 +166,7 @@ export default function AdminSettingsPage() {
             </Select>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={() => saveAll("SMTP settings saved.")}>Save SMTP Settings</Button>
+            <Button onClick={saveSmtpSettings}>Save SMTP Settings</Button>
             <Button variant="outline" onClick={runTestWorkflow}>Send Test Email</Button>
           </div>
         </Card>
