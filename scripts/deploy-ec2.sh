@@ -196,14 +196,23 @@ fi
 
 df -h
 
+# Even after cleanup, installs/builds are unreliable below ~1.5GB free on this project.
+post_cleanup_free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+min_required_kb=$((1536 * 1024))
+if [ "${post_cleanup_free_kb}" -lt "${min_required_kb}" ]; then
+  echo "ERROR: only ${post_cleanup_free_kb} KB free after cleanup; need at least ${min_required_kb} KB." >&2
+  echo "Resize EC2 root volume (EBS) and grow filesystem, then re-run deploy." >&2
+  exit 78
+fi
+
 # Install deps: prefer npm ci (reproducible). If lockfile is out of sync with package.json (e.g. dev
 # added a dependency but forgot to commit package-lock.json), fall back to npm install.
 npm_install_or_ci() {
-  if npm ci; then
+  if npm ci --no-audit --no-fund; then
     return 0
   fi
   echo "WARNING: npm ci failed (lockfile may be out of sync). Running npm install..." >&2
-  npm install
+  npm install --no-audit --no-fund
 }
 
 # Support monorepo (root has lumi-ride + backend) or single frontend repo
