@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
 import { 
   Accessibility, 
   CalendarDays, 
@@ -23,8 +22,6 @@ import {
   Globe,
   MapPin,
   ChevronRight,
-  Menu,
-  X,
   Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -61,18 +58,11 @@ const stats = [
 ];
 
 export default function LandingPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const pillarTone: Record<string, { bg: string; icon: string }> = {
-    sky: { bg: "bg-sky-500/10", icon: "text-sky-400" },
-    indigo: { bg: "bg-indigo-500/10", icon: "text-indigo-400" },
-    emerald: { bg: "bg-emerald-500/10", icon: "text-emerald-400" },
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-sky-500/30">
       {/* Navigation Layer */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/20 backdrop-blur-xl border-b border-white/5">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 h-20 flex items-center justify-between">
+        <div className="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">
           <Logo href="/" variant="light" className="h-10 w-auto" />
           <div className="hidden md:flex items-center gap-8 text-[11px] font-bold uppercase tracking-widest text-slate-400">
              <Link href="/about" className="hover:text-white transition-colors">Mission</Link>
@@ -86,27 +76,7 @@ export default function LandingPage() {
               <Button size="sm" className="hidden sm:inline-flex">Book Ride</Button>
             </Link>
           </div>
-          <button
-            type="button"
-            className="md:hidden rounded-lg border border-white/10 p-2 text-slate-300"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            onClick={() => setMobileMenuOpen((v) => !v)}
-          >
-            {mobileMenuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
-          </button>
         </div>
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-white/5 bg-slate-950/95 px-4 py-3">
-            <div className="grid grid-cols-2 gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-              <Link href="/about" className="rounded-lg bg-white/5 px-3 py-2" onClick={() => setMobileMenuOpen(false)}>Mission</Link>
-              <Link href="/accessibility" className="rounded-lg bg-white/5 px-3 py-2" onClick={() => setMobileMenuOpen(false)}>Accessibility</Link>
-              <Link href="/partners" className="rounded-lg bg-white/5 px-3 py-2" onClick={() => setMobileMenuOpen(false)}>Partners</Link>
-              <Link href="/drive-with-us" className="rounded-lg bg-white/5 px-3 py-2" onClick={() => setMobileMenuOpen(false)}>Careers</Link>
-              <Link href="/login" className="rounded-lg bg-white/5 px-3 py-2" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
-              <Link href="/book-my-ride" className="rounded-lg bg-sky-500/20 px-3 py-2 text-sky-300" onClick={() => setMobileMenuOpen(false)}>Book Ride</Link>
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* Hero Section */}
@@ -124,16 +94,16 @@ export default function LandingPage() {
           <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 blur-[150px] rounded-full" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 flex flex-col lg:flex-row items-center gap-10 lg:gap-16 py-16 sm:py-20">
+        <div className="relative z-10 mx-auto max-w-7xl px-6 flex flex-col lg:flex-row items-center gap-16 py-20">
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex-1 space-y-8 sm:space-y-10"
+            className="flex-1 space-y-10"
           >
             <Badge tone="info" className="bg-sky-500/10 border-sky-500/20 py-2 px-4 text-xs">
               <Zap className="size-3 mr-2 text-sky-400 fill-sky-400" /> NDIS Registered Provider
             </Badge>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-black leading-[1.05] tracking-tight">
+            <h1 className="text-5xl md:text-6xl lg:text-8xl font-black leading-[1.05] tracking-tight">
               Accessible <br />
               <span className="gradient-text">Transport</span> <br />
               Reimagined.
@@ -141,14 +111,14 @@ export default function LandingPage() {
             <p className="max-w-2xl text-lg md:text-xl text-slate-400 font-medium leading-relaxed">
               Serving the Australian disability and aged care sector with guaranteed ride windows, certified support-trained drivers, and zero surge pricing.
             </p>
-            <div className="flex flex-wrap gap-3 sm:gap-6">
+            <div className="flex flex-wrap gap-6">
               <Link href="/book-my-ride">
-                <Button size="lg" className="h-14 sm:h-16 px-6 sm:px-10 text-base sm:text-lg shadow-2xl shadow-sky-500/20">
+                <Button size="lg" className="h-16 px-10 text-lg shadow-2xl shadow-sky-500/20">
                   Book Your Journey <ArrowRight className="size-5 ml-2" />
                 </Button>
               </Link>
               <Link href="/partners">
-                <Button variant="outline" size="lg" className="h-14 sm:h-16 px-6 sm:px-10 text-base sm:text-lg border-white/10 hover:bg-white/5">
+                <Button variant="outline" size="lg" className="h-16 px-10 text-lg border-white/10 hover:bg-white/5">
                   Partner with Us
                 </Button>
               </Link>
@@ -171,7 +141,7 @@ export default function LandingPage() {
             transition={{ delay: 0.2 }}
             className="w-full lg:w-[460px]"
           >
-            <Card className="p-5 sm:p-8 backdrop-blur-3xl bg-slate-900/40 border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
+            <Card className="p-8 backdrop-blur-3xl bg-slate-900/40 border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
                <div className="flex items-center gap-4 mb-8">
                   <div className="size-12 rounded-2xl bg-sky-500/20 flex items-center justify-center">
                     <CalendarDays className="size-6 text-sky-400" />
@@ -243,9 +213,9 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
               >
-                <Card className="h-full p-6 sm:p-10 group bg-slate-900/20 hover:bg-slate-900/40 border-white/5 transition-all">
-                  <div className={cn("size-16 rounded-3xl mb-8 flex items-center justify-center transition-transform group-hover:scale-110", pillarTone[p.color]?.bg ?? "bg-sky-500/10")}>
-                    <p.icon className={cn("size-8", pillarTone[p.color]?.icon ?? "text-sky-400")} />
+                <Card className="h-full p-10 group bg-slate-900/20 hover:bg-slate-900/40 border-white/5 transition-all">
+                  <div className={cn("size-16 rounded-3xl mb-8 flex items-center justify-center transition-transform group-hover:scale-110", `bg-${p.color}-500/10`)}>
+                    <p.icon className={cn("size-8", `text-${p.color}-400`)} />
                   </div>
                   <h3 className="text-2xl font-black text-white mb-4 leading-tight">{p.title}</h3>
                   <p className="text-slate-400 text-sm font-medium leading-relaxed">{p.description}</p>
