@@ -39,6 +39,23 @@ export async function apiJson<T>(
     });
     clearTimeout(timeoutId);
 
+    const redirectToRoleLogin = () => {
+      clearAuthSession();
+      if (typeof window !== "undefined") {
+        const p = window.location.pathname;
+        const loginPath = p.startsWith("/driver")
+          ? "/driver/login"
+          : p.startsWith("/rider")
+            ? "/rider/login"
+            : p.startsWith("/partner")
+              ? "/partner/login"
+              : p.startsWith("/admin")
+                ? "/admin/login"
+                : "/login";
+        window.location.href = loginPath;
+      }
+    };
+
     if (!res.ok) {
       const isAuthRequest = path === "/auth/login" || path === "/auth/register";
       if (res.status === 401 && !isAuthRequest) {
@@ -51,20 +68,7 @@ export async function apiJson<T>(
             return Date.now() - ts < 8000;
           })();
         if (!inGracePeriod) {
-          clearAuthSession();
-          if (typeof window !== "undefined") {
-            const p = window.location.pathname;
-            const loginPath = p.startsWith("/driver")
-              ? "/driver/login"
-              : p.startsWith("/rider")
-                ? "/rider/login"
-                : p.startsWith("/partner")
-                  ? "/partner/login"
-                  : p.startsWith("/admin")
-                    ? "/admin/login"
-                    : "/login";
-            window.location.href = loginPath;
-          }
+          redirectToRoleLogin();
         }
       }
       let message = `Request failed (${res.status})`;
@@ -73,6 +77,11 @@ export async function apiJson<T>(
         if (payload?.error) message = payload.error;
       } catch {
         // ignore JSON parsing errors for non-JSON responses
+      }
+
+      // Some backend routes return non-401 with jwt token errors.
+      if (!isAuthRequest && /jwt expired|invalid token|unauthorized/i.test(message)) {
+        redirectToRoleLogin();
       }
       throw new Error(message);
     }
