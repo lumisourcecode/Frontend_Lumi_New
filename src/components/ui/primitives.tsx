@@ -103,16 +103,55 @@ export function Card({
   );
 }
 
+export function Label({ className, ...props }: HTMLAttributes<HTMLLabelElement>) {
+  return (
+    <label
+      className={cn("text-sm font-medium leading-none text-slate-200 peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)}
+      {...props}
+    />
+  );
+}
+
+type SwitchProps = {
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  className?: string;
+};
+
+export function Switch({ checked = false, onCheckedChange, className }: SwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange?.(!checked)}
+      className={cn(
+        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50",
+        checked ? "bg-sky-500" : "bg-slate-700",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none absolute top-0.5 left-0.5 inline-block h-6 w-6 rounded-full bg-white shadow transition-transform duration-200",
+          checked ? "translate-x-5" : "translate-x-0",
+        )}
+      />
+    </button>
+  );
+}
+
 export function Badge({
   className,
   tone = "default",
   ...props
 }: HTMLAttributes<HTMLSpanElement> & {
-  tone?: "default" | "certified" | "pending" | "danger" | "info";
+  tone?: "default" | "certified" | "pending" | "danger" | "info" | "success";
 }) {
   const tones: Record<string, string> = {
     default: "bg-slate-800/50 text-slate-400 border border-white/5",
     certified: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    success: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
     pending: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
     danger: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
     info: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
@@ -129,11 +168,22 @@ export function Badge({
   );
 }
 
-export function Progress({ value = 0 }: { value?: number }) {
+export function Progress({
+  value = 0,
+  className,
+  indicatorClassName,
+}: {
+  value?: number;
+  className?: string;
+  indicatorClassName?: string;
+}) {
   return (
-    <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+    <div className={cn("h-1.5 w-full rounded-full bg-slate-800 overflow-hidden", className)}>
       <div
-        className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(14,165,233,0.5)]"
+        className={cn(
+          "h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(14,165,233,0.5)]",
+          indicatorClassName,
+        )}
         style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
       />
     </div>

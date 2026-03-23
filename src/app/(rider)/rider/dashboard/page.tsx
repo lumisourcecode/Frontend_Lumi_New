@@ -325,7 +325,7 @@ function RiderDashboardContent() {
                        <div className="flex items-center justify-between pb-4 border-b border-white/5">
                           <div>
                             <p className="text-xs text-slate-400 font-bold uppercase">Estimated Fare</p>
-                            <h4 className="text-2xl font-bold text-white">${pricing.baseFare}</h4>
+                            <h4 className="text-2xl font-bold text-white">${baseFare}</h4>
                           </div>
                           <Badge tone="info">NDIS Ready</Badge>
                        </div>

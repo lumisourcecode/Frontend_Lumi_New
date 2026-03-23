@@ -25,7 +25,7 @@ import {
   Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Button, Card, Badge } from "@/components/ui/primitives";
+import { Button, Card, Badge, Input } from "@/components/ui/primitives";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 

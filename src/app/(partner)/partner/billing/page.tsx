@@ -58,7 +58,10 @@ export default function PartnerBillingPage() {
 
   const updateAutoInvoice = (val: boolean) => {
      setAutoInvoice(val);
-     apiJson("/partner/billing", { method: 'PATCH', body: { autoInvoice: val } }, session?.accessToken);
+     apiJson("/partner/billing", {
+       method: "PATCH",
+       body: JSON.stringify({ autoInvoice: val }),
+     }, session?.accessToken);
   };
 
   return (
