@@ -50,6 +50,22 @@ server {
         proxy_cache_bypass \$http_upgrade;
     }
 }
+
+lumi_setup_https() {
+  local DOMAIN="${LUMI_DOMAIN:-new.lumiride.com}"
+  local CERT_EMAIL="${LUMI_CERTBOT_EMAIL:-admin@lumiride.com}"
+  if ! command -v nginx >/dev/null 2>&1; then
+    sudo apt-get update -qq >/dev/null 2>&1 || true
+    sudo apt-get install -y nginx >/dev/null 2>&1 || true
+  fi
+  if ! command -v certbot >/dev/null 2>&1; then
+    sudo apt-get update -qq >/dev/null 2>&1 || true
+    sudo apt-get install -y certbot python3-certbot-nginx >/dev/null 2>&1 || true
+  fi
+  if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+    sudo certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${CERT_EMAIL}" --redirect || true
+  fi
+}
 EOF
   }
 
@@ -259,3 +275,9 @@ echo "Frontend deployment finished for ${APP_NAME}"
 # Serve Next.js static assets from nginx (not via Node). If /_next/static/* is proxied only to
 # next start, some EC2 setups return 500 for chunk files → browser stuck on "Loading…" and login never works.
 lumi_update_nginx "${FRONTEND_DIR}"
+lumi_setup_https
+lumi_update_nginx "${FRONTEND_DIR}"
+sudo nginx -t && sudo systemctl reload nginx
+if command -v ss >/dev/null 2>&1; then
+  sudo ss -ltnp | rg ':80|:443' || true
+fi

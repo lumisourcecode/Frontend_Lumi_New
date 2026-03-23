@@ -25,6 +25,8 @@ export default function AdminBillingPage() {
   const [clientName, setClientName] = useState("");
   const [scheme, setScheme] = useState("NDIS");
   const [amount, setAmount] = useState("");
+  const [sendToEmail, setSendToEmail] = useState("");
+  const [invoiceId, setInvoiceId] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -40,7 +42,7 @@ export default function AdminBillingPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function generateInvoice() {
+  async function generateInvoice(sendNow = false) {
     const session = getAuthSession();
     if (!session?.accessToken) return;
     if (!recipientId || !amount) {
@@ -51,7 +53,7 @@ export default function AdminBillingPage() {
     setMsg("");
     try {
       const numeric = Number(amount);
-      await apiJson("/admin/invoices/manual", {
+      const created = await apiJson<{ id: string; invoiceNumber: string }>("/admin/invoices/manual", {
         method: "POST",
         body: JSON.stringify({
           recipientId,
@@ -66,9 +68,45 @@ export default function AdminBillingPage() {
           ],
         }),
       }, session.accessToken);
-      setMsg("Xero-ready invoice draft generated.");
+      setInvoiceId(created.id);
+      if (sendNow) {
+        const toEmail = sendToEmail || "";
+        if (!toEmail) {
+          setMsg("Invoice created. Add recipient email to send.");
+        } else {
+          await apiJson(`/admin/invoices/${created.id}/send`, {
+            method: "POST",
+            body: JSON.stringify({ to: toEmail }),
+          }, session.accessToken);
+          setMsg("Xero-ready invoice generated and sent.");
+        }
+      } else {
+        setMsg("Xero-ready invoice draft generated.");
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to generate invoice");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendExistingInvoice(id: string, email: string) {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    if (!email) {
+      setMsg("Recipient email is required.");
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    try {
+      await apiJson(`/admin/invoices/${id}/send`, {
+        method: "POST",
+        body: JSON.stringify({ to: email }),
+      }, session.accessToken);
+      setMsg("Invoice sent successfully.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to send invoice");
     } finally {
       setBusy(false);
     }
@@ -107,11 +145,13 @@ export default function AdminBillingPage() {
             <option>Partner Invoice</option>
           </Select>
           <Input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input className="md:col-span-2" placeholder="Send to email / plan manager email" value={sendToEmail} onChange={(e) => setSendToEmail(e.target.value)} />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button onClick={generateInvoice} disabled={busy}>{busy ? "Generating..." : "Generate Xero-ready Invoice"}</Button>
-          <Button variant="outline" onClick={generateInvoice} disabled={busy}>Send to Plan Manager</Button>
+          <Button onClick={() => generateInvoice(false)} disabled={busy}>{busy ? "Generating..." : "Generate Xero-ready Invoice"}</Button>
+          <Button variant="outline" onClick={() => generateInvoice(true)} disabled={busy}>Send to Plan Manager</Button>
         </div>
+        {invoiceId ? <p className="mt-2 text-xs text-slate-500">Last generated invoice ID: {invoiceId}</p> : null}
         {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
       </Card>
 
@@ -143,9 +183,27 @@ export default function AdminBillingPage() {
                     <td className="py-2 pr-3">{new Date(b.scheduled_at).toLocaleDateString()}</td>
                     <td className="py-2 pr-3"><Badge tone="certified">{b.state}</Badge></td>
                     <td className="py-2">
-                      <Link href={`/admin/trips-history?trip=${b.trip_id}`}>
-                        <Button variant="outline">View</Button>
-                      </Link>
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/admin/trips-history?trip=${b.trip_id}`}>
+                          <Button variant="outline">View</Button>
+                        </Link>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setTripId(b.trip_id);
+                            setClientName(b.rider_name || "");
+                            setSendToEmail(b.rider_email || "");
+                            if (!amount) setAmount("45");
+                          }}
+                        >
+                          Use Details
+                        </Button>
+                        {invoiceId ? (
+                          <Button variant="outline" onClick={() => sendExistingInvoice(invoiceId, b.rider_email || sendToEmail)}>
+                            Send
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

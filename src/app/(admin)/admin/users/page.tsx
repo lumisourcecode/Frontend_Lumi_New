@@ -33,7 +33,7 @@ function AdminUsersContent() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [createEmail, setCreateEmail] = useState("");
   const [createPassword, setCreatePassword] = useState("");
-  const [createRole, setCreateRole] = useState<"rider" | "driver" | "partner" | "admin">(
+  const [createRole, setCreateRole] = useState<"rider" | "driver" | "partner" | "agent" | "admin">(
     createParam && ["rider", "driver", "partner", "admin"].includes(createParam) ? createParam : "rider"
   );
   const [createFullName, setCreateFullName] = useState("");
@@ -134,6 +134,7 @@ function AdminUsersContent() {
             <option value="rider">Rider</option>
             <option value="driver">Driver</option>
             <option value="partner">Partner</option>
+            <option value="agent">Agent (Partner Staff)</option>
             <option value="admin">Admin</option>
           </Select>
           <Input placeholder="Full name" value={createFullName} onChange={(e) => setCreateFullName(e.target.value)} />
