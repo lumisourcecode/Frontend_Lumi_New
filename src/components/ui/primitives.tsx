@@ -103,44 +103,6 @@ export function Card({
   );
 }
 
-export function Label({ className, ...props }: HTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label
-      className={cn("text-sm font-medium leading-none text-slate-200 peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)}
-      {...props}
-    />
-  );
-}
-
-type SwitchProps = {
-  checked?: boolean;
-  onCheckedChange?: (checked: boolean) => void;
-  className?: string;
-};
-
-export function Switch({ checked = false, onCheckedChange, className }: SwitchProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onCheckedChange?.(!checked)}
-      className={cn(
-        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50",
-        checked ? "bg-sky-500" : "bg-slate-700",
-        className,
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none absolute top-0.5 left-0.5 inline-block h-6 w-6 rounded-full bg-white shadow transition-transform duration-200",
-          checked ? "translate-x-5" : "translate-x-0",
-        )}
-      />
-    </button>
-  );
-}
-
 export function Badge({
   className,
   tone = "default",
