@@ -141,6 +141,38 @@ else
   echo "No git repo in ${APP_DIR}; using synced files."
 fi
 
+# Monorepo (lumi-ride/) vs single frontend repo (Next at root)
+if [ -d "lumi-ride" ]; then
+  FRONTEND_DIR="lumi-ride"
+else
+  FRONTEND_DIR="."
+fi
+
+# Next.js inlines NEXT_PUBLIC_* at build time. Writing .env.production before `npm run build`
+# matches `export` from GitHub Actions and gives a visible file on the server for debugging.
+lumi_write_frontend_env() {
+  local dir="${1:?}"
+  local f="${APP_DIR}/${dir}/.env.production"
+  local tmp
+  tmp="$(mktemp)"
+  umask 077
+  [ -n "${NEXT_PUBLIC_API_BASE_URL:-}" ] && printf '%s=%s\n' "NEXT_PUBLIC_API_BASE_URL" "${NEXT_PUBLIC_API_BASE_URL}" >> "${tmp}"
+  [ -n "${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}" ] && printf '%s=%s\n' "NEXT_PUBLIC_GOOGLE_CLIENT_ID" "${NEXT_PUBLIC_GOOGLE_CLIENT_ID}" >> "${tmp}"
+  [ -n "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}" ] && printf '%s=%s\n' "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}" >> "${tmp}"
+  [ -n "${NEXT_PUBLIC_SKIP_AUTH:-}" ] && printf '%s=%s\n' "NEXT_PUBLIC_SKIP_AUTH" "${NEXT_PUBLIC_SKIP_AUTH}" >> "${tmp}"
+  if [ -s "${tmp}" ]; then
+    mv "${tmp}" "${f}"
+    chmod 600 "${f}"
+    echo "Wrote ${f} for next build (NEXT_PUBLIC_* from environment)."
+  else
+    rm -f "${tmp}"
+    rm -f "${f}"
+    echo "No NEXT_PUBLIC_* in environment; removed ${f} if present (Next.js will use code defaults)."
+  fi
+}
+
+lumi_write_frontend_env "${FRONTEND_DIR}"
+
 # Free space on small EC2 instances before install
 free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
 min_free_kb=$((2048 * 1024))
@@ -178,11 +210,9 @@ npm_install_or_ci() {
 if [ -d "lumi-ride" ]; then
   npm_install_or_ci
   npm run build
-  FRONTEND_DIR="lumi-ride"
 else
   npm_install_or_ci
   npm run build
-  FRONTEND_DIR="."
 fi
 
 cd "${APP_DIR}/${FRONTEND_DIR}"
