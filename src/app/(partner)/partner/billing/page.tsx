@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type LabelHTMLAttributes } from "react";
 import { 
   Badge, 
   Button, 
   Card, 
-  Switch,
   Input,
-  Label
 } from "@/components/ui/primitives";
 import { 
   FileCheck, 
@@ -21,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiJson, getAuthSession } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 type Invoice = {
   id: string;
@@ -30,6 +29,49 @@ type Invoice = {
   status: string;
   issue_date: string;
 };
+
+function BillingLabel({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
+  return (
+    <label
+      className={cn(
+        "text-sm font-medium leading-none text-slate-200 peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function BillingSwitch({
+  checked = false,
+  onCheckedChange,
+  className,
+}: {
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange?.(!checked)}
+      className={cn(
+        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50",
+        checked ? "bg-sky-500" : "bg-slate-700",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none absolute top-0.5 left-0.5 inline-block h-6 w-6 rounded-full bg-white shadow transition-transform duration-200",
+          checked ? "translate-x-5" : "translate-x-0",
+        )}
+      />
+    </button>
+  );
+}
 
 export default function PartnerBillingPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -142,15 +184,15 @@ export default function PartnerBillingPage() {
                <Card className="p-6 bg-slate-900/60 border-white/5 space-y-6">
                   <div className="flex items-center justify-between">
                      <div className="space-y-0.5">
-                        <Label className="text-sm font-bold text-white">Auto-Submit Claims</Label>
+                        <BillingLabel className="text-sm font-bold text-white">Auto-Submit Claims</BillingLabel>
                         <p className="text-[10px] text-slate-500">Send PDF to manager instantly</p>
                      </div>
-                     <Switch checked={autoInvoice} onCheckedChange={updateAutoInvoice} />
+                     <BillingSwitch checked={autoInvoice} onCheckedChange={updateAutoInvoice} />
                   </div>
                   
                   <div className="space-y-4 pt-4 border-t border-white/5">
                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-500">Claim Frequency</Label>
+                        <BillingLabel className="text-[10px] font-black uppercase text-slate-500">Claim Frequency</BillingLabel>
                         <select className="w-full bg-slate-950 border-white/5 rounded-xl text-xs text-white p-3">
                            <option>Immediate (Per Trip)</option>
                            <option>Weekly Batch (Fridays)</option>
