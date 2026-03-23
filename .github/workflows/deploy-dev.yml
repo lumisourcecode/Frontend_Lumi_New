@@ -70,43 +70,6 @@ jobs:
             command -v pm2 >/dev/null 2>&1 || sudo npm i -g pm2
             command -v nginx >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y nginx)
 
-            # Route new.lumiride.com to frontend and /api to backend
-            sudo tee /etc/nginx/sites-available/lumi-ride-dev > /dev/null << "NGINXEOF"
-          server {
-            listen 80;
-            server_name new.lumiride.com;
-
-            location /api/ {
-              proxy_pass http://127.0.0.1:4000/;
-              proxy_http_version 1.1;
-              proxy_set_header Host $host;
-              proxy_set_header X-Real-IP $remote_addr;
-              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $scheme;
-            }
-
-            location / {
-              proxy_pass http://127.0.0.1:3000;
-              proxy_http_version 1.1;
-              proxy_set_header Upgrade $http_upgrade;
-              proxy_set_header Connection upgrade;
-              proxy_set_header Host $host;
-              proxy_cache_bypass $http_upgrade;
-            }
-          }
-          NGINXEOF
-            sudo ln -sf /etc/nginx/sites-available/lumi-ride-dev /etc/nginx/sites-enabled/lumi-ride-dev
-            sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-            sudo nginx -t && sudo systemctl reload nginx
-
-            # Automatically set up SSL with Certbot
-            if ! command -v certbot >/dev/null 2>&1; then
-              sudo apt-get update -qq && sudo apt-get install -y certbot python3-certbot-nginx
-            fi
-            # Run certbot --nginx and agree to TOS. 
-            # Use -m admin@lumiride.com for expiration emails.
-            sudo certbot --nginx -d new.lumiride.com --non-interactive --agree-tos -m admin@lumiride.com || true
-
             cd "'"${APP_DIR}"'"
             export NEXT_PUBLIC_API_BASE_URL=https://new.lumiride.com/api
             export NEXT_PUBLIC_GOOGLE_CLIENT_ID="'"${NEXT_PUBLIC_GOOGLE_CLIENT_ID}"'"
@@ -114,4 +77,14 @@ jobs:
             export APP_NAME="'"${APP_NAME}"'" APP_PORT="'"${APP_PORT}"'"
             chmod +x scripts/deploy-ec2.sh
             bash scripts/deploy-ec2.sh dev
+
+            # SSL: deploy-ec2.sh writes nginx (/_next/static, /api, /). Obtain cert on first deploy.
+            if ! command -v certbot >/dev/null 2>&1; then
+              sudo apt-get update -qq && sudo apt-get install -y certbot python3-certbot-nginx
+            fi
+            if [ ! -f /etc/letsencrypt/live/new.lumiride.com/fullchain.pem ]; then
+              sudo certbot --nginx -d new.lumiride.com --non-interactive --agree-tos -m admin@lumiride.com || true
+              # Certbot may alter nginx; re-apply our site (HTTPS + /_next/static + /api) without a full rebuild
+              NGINX_ONLY=1 bash scripts/deploy-ec2.sh dev
+            fi
           '
