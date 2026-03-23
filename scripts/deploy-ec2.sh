@@ -233,7 +233,16 @@ fi
 
 # Install deps in full mode to avoid lockfile drift failures in production deploy.
 npm_install_or_ci() {
-  npm install --no-audit --no-fund
+  local NPM_CACHE_DIR="${APP_DIR}/.npm-cache"
+  mkdir -p "${NPM_CACHE_DIR}"
+  # Use app-local cache to avoid intermittent ~/.npm/_cacache corruption/rename issues on EC2.
+  if ! npm install --no-audit --no-fund --cache "${NPM_CACHE_DIR}" --prefer-online; then
+    echo "npm install failed; clearing local npm cache and retrying once..."
+    rm -rf "${NPM_CACHE_DIR}" 2>/dev/null || true
+    mkdir -p "${NPM_CACHE_DIR}"
+    npm cache clean --force >/dev/null 2>&1 || true
+    npm install --no-audit --no-fund --cache "${NPM_CACHE_DIR}" --prefer-online
+  fi
 }
 
 # Support monorepo (root has lumi-ride + backend) or single frontend repo
