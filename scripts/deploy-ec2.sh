@@ -110,6 +110,8 @@ EOF
   sudo ln -sf /etc/nginx/sites-available/lumi-ride-dev /etc/nginx/sites-enabled/lumi-ride-dev
   sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
   if sudo nginx -t; then
+    sudo systemctl enable nginx >/dev/null 2>&1 || true
+    sudo systemctl start nginx >/dev/null 2>&1 || true
     sudo systemctl reload nginx
     echo "Nginx updated: /_next/static -> ${STATIC_ABS}/"
   else
@@ -232,6 +234,26 @@ else
 fi
 
 pm2 save
+
+# Verify Next.js process is reachable locally before reporting success.
+if ! command -v curl >/dev/null 2>&1; then
+  sudo apt-get update -qq >/dev/null 2>&1 || true
+  sudo apt-get install -y curl >/dev/null 2>&1 || true
+fi
+ready=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS "http://127.0.0.1:${APP_PORT}/" >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 2
+done
+if [ "${ready}" -ne 1 ]; then
+  echo "ERROR: Next.js app is not responding on http://127.0.0.1:${APP_PORT}" >&2
+  pm2 status || true
+  exit 79
+fi
+
 echo "Frontend deployment finished for ${APP_NAME}"
 
 # Serve Next.js static assets from nginx (not via Node). If /_next/static/* is proxied only to
