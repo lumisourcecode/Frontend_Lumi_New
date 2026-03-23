@@ -178,14 +178,11 @@ free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
 min_free_kb=$((2048 * 1024))
 echo "Free disk before install: ${free_kb} KB"
 
-# Minimum approach by default: reuse existing node_modules to avoid heavy reinstalls on tiny disks.
-# Set CLEAN_INSTALL=1 to force deleting modules and doing a fresh dependency install.
-if [ "${CLEAN_INSTALL:-0}" = "1" ]; then
-  echo "CLEAN_INSTALL=1: removing node_modules before install."
-  rm -rf node_modules lumi-ride/node_modules 2>/dev/null || true
-  npm cache clean --force 2>/dev/null || true
-  rm -rf ~/.npm/_cacache ~/.cache 2>/dev/null || true
-fi
+# Full deploy mode (default): remove modules and install fresh for reproducible releases.
+echo "Full deploy mode: cleaning node_modules before install."
+rm -rf node_modules lumi-ride/node_modules 2>/dev/null || true
+npm cache clean --force 2>/dev/null || true
+rm -rf ~/.npm/_cacache ~/.cache 2>/dev/null || true
 
 # Build output can be regenerated safely each deploy.
 rm -rf .next lumi-ride/.next 2>/dev/null || true
@@ -204,52 +201,26 @@ fi
 
 df -h
 
-# Decide whether we can reuse installed deps.
-need_install=0
-[ ! -d "node_modules" ] && need_install=1
-skip_install="${SKIP_INSTALL:-0}"
-
 # Even after cleanup, fresh installs are unreliable below ~1.5GB free on this project.
 post_cleanup_free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
 min_required_kb=$((1536 * 1024))
-if [ "${post_cleanup_free_kb}" -lt "${min_required_kb}" ] && [ "${need_install}" -eq 0 ]; then
-  echo "Low disk (${post_cleanup_free_kb} KB): reusing existing node_modules and skipping install."
-  skip_install=1
-fi
-if [ "${need_install}" -eq 1 ] && [ "${post_cleanup_free_kb}" -lt "${min_required_kb}" ]; then
+if [ "${post_cleanup_free_kb}" -lt "${min_required_kb}" ]; then
   echo "ERROR: only ${post_cleanup_free_kb} KB free after cleanup; need at least ${min_required_kb} KB." >&2
   echo "Resize EC2 root volume (EBS) and grow filesystem, then re-run deploy." >&2
   exit 78
 fi
 
-# Install deps: prefer npm ci (reproducible). If lockfile is out of sync with package.json (e.g. dev
-# added a dependency but forgot to commit package-lock.json), fall back to npm install.
+# Install deps in full mode to avoid lockfile drift failures in production deploy.
 npm_install_or_ci() {
-  if npm ci --no-audit --no-fund; then
-    return 0
-  fi
-  echo "WARNING: npm ci failed (lockfile may be out of sync). Running npm install..." >&2
   npm install --no-audit --no-fund
 }
 
 # Support monorepo (root has lumi-ride + backend) or single frontend repo
 if [ -d "lumi-ride" ]; then
-  if [ "${skip_install}" = "1" ]; then
-    echo "SKIP_INSTALL=1: using existing node_modules."
-  elif [ "${need_install}" -eq 1 ]; then
-    npm_install_or_ci
-  else
-    echo "Reusing existing node_modules (set CLEAN_INSTALL=1 for fresh install)."
-  fi
+  npm_install_or_ci
   npm run build
 else
-  if [ "${skip_install}" = "1" ]; then
-    echo "SKIP_INSTALL=1: using existing node_modules."
-  elif [ "${need_install}" -eq 1 ]; then
-    npm_install_or_ci
-  else
-    echo "Reusing existing node_modules (set CLEAN_INSTALL=1 for fresh install)."
-  fi
+  npm_install_or_ci
   npm run build
 fi
 
