@@ -78,6 +78,8 @@ export default function AdminPartnerDetailPage() {
   const [isActive, setIsActive] = useState(true);
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanStatus, setNewPlanStatus] = useState("Draft");
+  const [bookingStatusFilter, setBookingStatusFilter] = useState("all");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("all");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -209,6 +211,48 @@ export default function AdminPartnerDetailPage() {
     await loadOverview();
   }
 
+  async function updateTicketStatus(ticketId: string, status: string) {
+    if (!token) return;
+    setMsg("");
+    try {
+      await apiJson(`/admin/support-tickets/${ticketId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }, token);
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status } : t)));
+      setMsg("Ticket status updated.");
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Could not update ticket.");
+    }
+  }
+
+  async function updateBookingStatus(bookingId: string, status: "pending_matching" | "confirmed" | "cancelled") {
+    if (!token) return;
+    setMsg("");
+    try {
+      await apiJson(`/admin/bookings/${bookingId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }, token);
+      setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, status } : b)));
+      setMsg("Booking updated.");
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Could not update booking.");
+    }
+  }
+
+  async function removeBooking(bookingId: string) {
+    if (!token) return;
+    setMsg("");
+    try {
+      await apiJson(`/admin/bookings/${bookingId}`, { method: "DELETE" }, token);
+      setBookings((prev) => prev.filter((b) => b.id !== bookingId));
+      setMsg("Booking removed.");
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Could not remove booking.");
+    }
+  }
+
   if (loading) return <div className="text-sm text-slate-500">Loading partner workspace...</div>;
   if (!overview) return <div className="text-sm text-red-600">Partner not found.</div>;
 
@@ -308,6 +352,15 @@ export default function AdminPartnerDetailPage() {
       {tab === "bookings" && (
         <Card>
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">Partner Bookings</h2>
+          <div className="mt-3 max-w-xs">
+            <Select value={bookingStatusFilter} onChange={(e) => setBookingStatusFilter(e.target.value)}>
+              <option value="all">All status</option>
+              <option value="pending_matching">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="completed">Completed</option>
+            </Select>
+          </div>
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
@@ -316,15 +369,26 @@ export default function AdminPartnerDetailPage() {
                   <th className="py-2 pr-3">Route</th>
                   <th className="py-2 pr-3">Scheduled</th>
                   <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((b) => (
+                {bookings
+                  .filter((b) => bookingStatusFilter === "all" || b.status === bookingStatusFilter)
+                  .map((b) => (
                   <tr key={b.id} className="border-b">
                     <td className="py-2 pr-3">{b.rider_name || b.rider_email || "-"}</td>
                     <td className="py-2 pr-3">{b.pickup} {"->"} {b.dropoff}</td>
                     <td className="py-2 pr-3">{new Date(b.scheduled_at).toLocaleString()}</td>
                     <td className="py-2 pr-3">{b.status}</td>
+                    <td className="py-2 pr-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={() => updateBookingStatus(b.id, "pending_matching")}>Pending</Button>
+                        <Button variant="outline" onClick={() => updateBookingStatus(b.id, "confirmed")}>Confirm</Button>
+                        <Button variant="outline" onClick={() => updateBookingStatus(b.id, "cancelled")}>Cancel</Button>
+                        <Button variant="danger" onClick={() => removeBooking(b.id)}>Delete</Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -381,6 +445,15 @@ export default function AdminPartnerDetailPage() {
       {tab === "tickets" && (
         <Card>
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">Support Tickets</h2>
+          <div className="mt-3 max-w-xs">
+            <Select value={ticketStatusFilter} onChange={(e) => setTicketStatusFilter(e.target.value)}>
+              <option value="all">All status</option>
+              <option value="Open">Open</option>
+              <option value="in_review">In review</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </Select>
+          </div>
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
@@ -390,16 +463,27 @@ export default function AdminPartnerDetailPage() {
                   <th className="py-2 pr-3">Priority</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Message</th>
+                  <th className="py-2 pr-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {tickets.map((ticket) => (
+                {tickets
+                  .filter((t) => ticketStatusFilter === "all" || String(t.status).toLowerCase() === ticketStatusFilter.toLowerCase())
+                  .map((ticket) => (
                   <tr key={ticket.id} className="border-b">
                     <td className="py-2 pr-3">{new Date(ticket.created_at).toLocaleString()}</td>
                     <td className="py-2 pr-3">{ticket.issue_type}</td>
                     <td className="py-2 pr-3">{ticket.priority}</td>
                     <td className="py-2 pr-3">{ticket.status}</td>
                     <td className="py-2 pr-3">{ticket.message}</td>
+                    <td className="py-2 pr-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={() => updateTicketStatus(ticket.id, "Open")}>Open</Button>
+                        <Button variant="outline" onClick={() => updateTicketStatus(ticket.id, "in_review")}>Review</Button>
+                        <Button variant="outline" onClick={() => updateTicketStatus(ticket.id, "resolved")}>Resolve</Button>
+                        <Button variant="outline" onClick={() => updateTicketStatus(ticket.id, "closed")}>Close</Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

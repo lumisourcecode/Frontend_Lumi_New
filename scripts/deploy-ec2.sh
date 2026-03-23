@@ -172,7 +172,9 @@ lumi_write_frontend_env() {
   local dir="${1:?}"
   local f="${APP_DIR}/${dir}/.env.production"
   local tmp
+  local old_umask
   tmp="$(mktemp)"
+  old_umask="$(umask)"
   umask 077
   [ -n "${NEXT_PUBLIC_API_BASE_URL:-}" ] && printf '%s=%s\n' "NEXT_PUBLIC_API_BASE_URL" "${NEXT_PUBLIC_API_BASE_URL}" >> "${tmp}"
   [ -n "${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}" ] && printf '%s=%s\n' "NEXT_PUBLIC_GOOGLE_CLIENT_ID" "${NEXT_PUBLIC_GOOGLE_CLIENT_ID}" >> "${tmp}"
@@ -187,6 +189,7 @@ lumi_write_frontend_env() {
     rm -f "${f}"
     echo "No NEXT_PUBLIC_* in environment; removed ${f} if present (Next.js will use code defaults)."
   fi
+  umask "${old_umask}"
 }
 
 lumi_write_frontend_env "${FRONTEND_DIR}"
@@ -240,6 +243,11 @@ if [ -d "lumi-ride" ]; then
 else
   npm_install_or_ci
   npm run build
+fi
+
+# Ensure nginx can read Next.js static files even if restrictive umask was inherited.
+if [ -d "${APP_DIR}/${FRONTEND_DIR}/.next" ]; then
+  chmod -R a+rX "${APP_DIR}/${FRONTEND_DIR}/.next" || true
 fi
 
 cd "${APP_DIR}/${FRONTEND_DIR}"

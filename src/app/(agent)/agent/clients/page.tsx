@@ -13,6 +13,11 @@ export default function PartnerClientsPage() {
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("name_asc");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
   const [form, setForm] = useState({
     email: "",
     fullName: "",
@@ -22,11 +27,19 @@ export default function PartnerClientsPage() {
   });
   const DRAFT_KEY = "partner_client_draft_v1";
 
-  async function loadClients() {
+  async function loadClients(nextPage = page) {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    const r = await apiJson<{ items: Client[] }>("/partner/clients", undefined, session.accessToken);
+    const params = new URLSearchParams({
+      page: String(nextPage),
+      limit: String(limit),
+      sort,
+    });
+    if (query.trim()) params.set("q", query.trim());
+    const r = await apiJson<{ items: Client[]; total?: number; page?: number }>(`/partner/clients?${params.toString()}`, undefined, session.accessToken);
     setClients(r.items);
+    setTotal(Number(r.total ?? r.items.length));
+    setPage(Number(r.page ?? nextPage));
   }
 
   useEffect(() => {
@@ -41,10 +54,16 @@ export default function PartnerClientsPage() {
         }
       }
     }
-    loadClients()
+    loadClients(1)
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadClients(1).catch(() => undefined);
+    // server query params
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort, limit]);
 
   function saveDraftProfile() {
     if (typeof window !== "undefined") {
@@ -73,7 +92,7 @@ export default function PartnerClientsPage() {
           notes: form.notes || undefined,
         }),
       }, session.accessToken);
-      await loadClients();
+      await loadClients(1);
       setForm({ email: "", fullName: "", phone: "", ndisId: "", notes: "" });
       setMsg("Client added.");
     } catch (e) {
@@ -98,7 +117,7 @@ export default function PartnerClientsPage() {
           notes: form.notes || undefined,
         }),
       }, session.accessToken);
-      await loadClients();
+      await loadClients(page);
       setEditingId(null);
       setMsg("Client updated.");
     } catch (e) {
@@ -115,7 +134,7 @@ export default function PartnerClientsPage() {
     setMsg("");
     try {
       await apiJson(`/partner/clients/${clientId}`, { method: "DELETE" }, session.accessToken);
-      await loadClients();
+      await loadClients(page);
       setMsg("Client removed.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to remove client");
@@ -202,6 +221,21 @@ export default function PartnerClientsPage() {
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Client List</h2>
         <p className="mt-1 text-xs text-slate-500">Riders you have created bookings for</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-4">
+          <Input placeholder="Search name/email/ndis/notes" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="name_asc">Sort: Name A-Z</option>
+            <option value="name_desc">Sort: Name Z-A</option>
+            <option value="bookings_desc">Sort: Most bookings</option>
+            <option value="bookings_asc">Sort: Least bookings</option>
+          </Select>
+          <Select value={String(limit)} onChange={(e) => setLimit(Number(e.target.value))}>
+            <option value="20">20 / page</option>
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+          </Select>
+          <Button variant="outline" onClick={() => loadClients(1).catch(() => undefined)}>Search</Button>
+        </div>
         <div className="mt-3 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
@@ -249,6 +283,13 @@ export default function PartnerClientsPage() {
               </tbody>
             </table>
           )}
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xs text-slate-500">Showing {clients.length} of {total}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={page <= 1 || loading} onClick={() => loadClients(page - 1).catch(() => undefined)}>Prev</Button>
+            <Button variant="outline" disabled={page * limit >= total || loading} onClick={() => loadClients(page + 1).catch(() => undefined)}>Next</Button>
+          </div>
         </div>
       </Card>
     </div>

@@ -77,7 +77,28 @@ jobs:
             cd '${EC2_APP_DIR}'
             chmod +x scripts/deploy-ec2.sh
             bash scripts/deploy-ec2.sh dev
+            # Force idempotent HTTPS/nginx reconciliation so no manual server commands are needed.
+            export LUMI_DOMAIN='${SITE_HOST}'
+            export APP_PORT='${APP_PORT}'
+            NGINX_ONLY=1 bash scripts/deploy-ec2.sh dev
+            sudo apt-get update -qq
+            sudo apt-get install -y certbot python3-certbot-nginx
+            sudo certbot --nginx -d '${SITE_HOST}' --non-interactive --agree-tos -m '${CERT_EMAIL}' --redirect || true
+            sudo nginx -t && sudo systemctl reload nginx
+            sudo ss -ltnp | rg ':80|:443' || true
+            # Local app and local nginx checks on EC2
+            curl -fsS 'http://127.0.0.1:${APP_PORT}/' >/dev/null
+            curl -kI 'https://127.0.0.1/' >/dev/null || true
           "
+
+      - name: Public endpoint check
+        env:
+          LUMI_PUBLIC_HOST: ${{ vars.LUMI_PUBLIC_HOST }}
+        run: |
+          set -e
+          H="${LUMI_PUBLIC_HOST:-new.lumiride.com}"
+          echo "Checking https://${H}/login"
+          curl -kI --retry 5 --retry-delay 3 --max-time 20 "https://${H}/login"
 
       - name: Summary
         if: success()

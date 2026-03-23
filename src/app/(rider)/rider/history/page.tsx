@@ -30,43 +30,51 @@ export default function RiderHistoryPage() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("created_desc");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
 
   const session = getAuthSession();
 
-  const filteredBookings = useMemo(() => {
-    let out = bookings;
-    if (filterStatus !== "all") {
-      if (filterStatus === "completed") out = out.filter((b) => b.status.toLowerCase().includes("completed"));
-      else if (filterStatus === "cancelled") out = out.filter((b) => b.status === "cancelled");
-      else if (filterStatus === "in-progress") out = out.filter((b) => b.status !== "cancelled" && !b.status.toLowerCase().includes("completed"));
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      out = out.filter((b) =>
-        (b.pickup || "").toLowerCase().includes(q) ||
-        (b.dropoff || "").toLowerCase().includes(q) ||
-        (b.id || "").toLowerCase().includes(q) ||
-        (b.trip_id ? String(b.trip_id).toLowerCase().includes(q) : false),
-      );
-    }
-    return out;
-  }, [bookings, filterStatus, searchQuery]);
+  const filteredBookings = useMemo(() => bookings, [bookings]);
 
-  useEffect(() => {
+  async function loadBookings(nextPage = page) {
     if (!session?.accessToken) {
       setError("Please login first.");
       setLoading(false);
       return;
     }
-    apiJson<{ items: typeof bookings }>(
-      "/rider/bookings",
-      undefined,
-      session.accessToken,
-    )
-      .then((res) => setBookings(res.items))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load trips"))
-      .finally(() => setLoading(false));
-  }, [session?.accessToken]);
+    setLoading(true);
+    setError("");
+    const params = new URLSearchParams({
+      page: String(nextPage),
+      limit: String(limit),
+      sort: sortBy,
+    });
+    if (filterStatus !== "all") params.set("status", filterStatus);
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+    try {
+      const res = await apiJson<{ items: typeof bookings; total?: number; page?: number }>(
+        `/rider/bookings?${params.toString()}`,
+        undefined,
+        session.accessToken,
+      );
+      setBookings(res.items);
+      setTotal(Number(res.total ?? res.items.length));
+      setPage(Number(res.page ?? nextPage));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load trips");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBookings(1).catch(() => undefined);
+    // keep server-driven filters in sync
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.accessToken, filterStatus, sortBy, limit]);
 
   const completedCount = useMemo(
     () => bookings.filter((t) => t.status.toLowerCase().includes("completed")).length,
@@ -108,8 +116,20 @@ export default function RiderHistoryPage() {
             <option value="in-progress">In Progress</option>
           </Select>
           <Input placeholder="Search by trip ID / location" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="created_desc">Newest</option>
+            <option value="created_asc">Oldest</option>
+            <option value="scheduled_desc">Scheduled latest</option>
+            <option value="scheduled_asc">Scheduled earliest</option>
+          </Select>
+          <Select value={String(limit)} onChange={(e) => setLimit(Number(e.target.value))}>
+            <option value="20">20 / page</option>
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+          </Select>
+          <Button variant="outline" onClick={() => loadBookings(1).catch(() => undefined)}>Search</Button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">Showing {filteredBookings.length} of {bookings.length} bookings</p>
+        <p className="mt-2 text-xs text-slate-500">Showing {filteredBookings.length} of {total} bookings</p>
       </Card>
 
       <Card>
@@ -172,6 +192,13 @@ export default function RiderHistoryPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xs text-slate-500">Page {page}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={page <= 1 || loading} onClick={() => loadBookings(page - 1).catch(() => undefined)}>Prev</Button>
+            <Button variant="outline" disabled={page * limit >= total || loading} onClick={() => loadBookings(page + 1).catch(() => undefined)}>Next</Button>
+          </div>
         </div>
       </Card>
 
