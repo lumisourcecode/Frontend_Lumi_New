@@ -178,9 +178,17 @@ free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
 min_free_kb=$((2048 * 1024))
 echo "Free disk before install: ${free_kb} KB"
 
-rm -rf node_modules .next lumi-ride/node_modules lumi-ride/.next 2>/dev/null || true
-npm cache clean --force 2>/dev/null || true
-rm -rf ~/.npm/_cacache ~/.cache 2>/dev/null || true
+# Minimum approach by default: reuse existing node_modules to avoid heavy reinstalls on tiny disks.
+# Set CLEAN_INSTALL=1 to force deleting modules and doing a fresh dependency install.
+if [ "${CLEAN_INSTALL:-0}" = "1" ]; then
+  echo "CLEAN_INSTALL=1: removing node_modules before install."
+  rm -rf node_modules lumi-ride/node_modules 2>/dev/null || true
+  npm cache clean --force 2>/dev/null || true
+  rm -rf ~/.npm/_cacache ~/.cache 2>/dev/null || true
+fi
+
+# Build output can be regenerated safely each deploy.
+rm -rf .next lumi-ride/.next 2>/dev/null || true
 pm2 flush >/dev/null 2>&1 || true
 rm -f ~/.pm2/logs/*.log 2>/dev/null || true
 
@@ -196,10 +204,14 @@ fi
 
 df -h
 
-# Even after cleanup, installs/builds are unreliable below ~1.5GB free on this project.
+# Decide whether we can reuse installed deps.
+need_install=0
+[ ! -d "node_modules" ] && need_install=1
+
+# Even after cleanup, fresh installs are unreliable below ~1.5GB free on this project.
 post_cleanup_free_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
 min_required_kb=$((1536 * 1024))
-if [ "${post_cleanup_free_kb}" -lt "${min_required_kb}" ]; then
+if [ "${need_install}" -eq 1 ] && [ "${post_cleanup_free_kb}" -lt "${min_required_kb}" ]; then
   echo "ERROR: only ${post_cleanup_free_kb} KB free after cleanup; need at least ${min_required_kb} KB." >&2
   echo "Resize EC2 root volume (EBS) and grow filesystem, then re-run deploy." >&2
   exit 78
@@ -217,10 +229,18 @@ npm_install_or_ci() {
 
 # Support monorepo (root has lumi-ride + backend) or single frontend repo
 if [ -d "lumi-ride" ]; then
-  npm_install_or_ci
+  if [ "${need_install}" -eq 1 ]; then
+    npm_install_or_ci
+  else
+    echo "Reusing existing node_modules (set CLEAN_INSTALL=1 for fresh install)."
+  fi
   npm run build
 else
-  npm_install_or_ci
+  if [ "${need_install}" -eq 1 ]; then
+    npm_install_or_ci
+  else
+    echo "Reusing existing node_modules (set CLEAN_INSTALL=1 for fresh install)."
+  fi
   npm run build
 fi
 
