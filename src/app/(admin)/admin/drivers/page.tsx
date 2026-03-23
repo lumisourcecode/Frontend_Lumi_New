@@ -12,6 +12,10 @@ export default function AdminDriversPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [activityFilter, setActivityFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"name" | "verification" | "recent">("verification");
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -27,8 +31,32 @@ export default function AdminDriversPage() {
     const s = search.toLowerCase();
     const matchSearch = !s || (d.full_name || d.email).toLowerCase().includes(s) || (d.email || "").toLowerCase().includes(s) || (d.vehicle_rego || "").toLowerCase().includes(s);
     const matchStatus = status === "all" || (d.verification_status || "Pending") === status;
-    return matchSearch && matchStatus;
+    const matchActive = activityFilter === "all" || (activityFilter === "active" ? d.is_active !== false : d.is_active === false);
+    return matchSearch && matchStatus && matchActive;
+  }).sort((a, b) => {
+    if (sortBy === "recent") return String(b.id).localeCompare(String(a.id));
+    if (sortBy === "name") return String(a.full_name || a.email).localeCompare(String(b.full_name || b.email));
+    return String(a.verification_status || "").localeCompare(String(b.verification_status || ""));
   });
+
+  async function setDriverActive(userId: string, isActive: boolean) {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    setSavingId(userId);
+    setMsg("");
+    try {
+      await apiJson(`/admin/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: isActive }),
+      }, session.accessToken);
+      setDrivers((prev) => prev.map((d) => (d.id === userId ? { ...d, is_active: isActive } : d)));
+      setMsg(`Driver ${isActive ? "activated" : "suspended"}.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to update driver status");
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -65,7 +93,18 @@ export default function AdminDriversPage() {
             <option value="Pending">Pending</option>
             <option value="Rejected">Rejected</option>
           </Select>
+          <Select value={activityFilter} onChange={(e) => setActivityFilter(e.target.value)}>
+            <option value="all">All account states</option>
+            <option value="active">Active accounts</option>
+            <option value="suspended">Suspended accounts</option>
+          </Select>
+          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+            <option value="verification">Sort: Verification</option>
+            <option value="name">Sort: Name</option>
+            <option value="recent">Sort: Recently Added</option>
+          </Select>
         </div>
+        {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
         <div className="mt-3 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
@@ -88,6 +127,7 @@ export default function AdminDriversPage() {
                   <th className="py-2 pr-3">Email</th>
                   <th className="py-2 pr-3">Vehicle</th>
                   <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Account</th>
                   <th className="py-2">Actions</th>
                 </tr>
               </thead>
@@ -110,10 +150,20 @@ export default function AdminDriversPage() {
                         {d.verification_status || "Pending"}
                       </Badge>
                     </td>
+                    <td className="py-2 pr-3">{d.is_active === false ? "Suspended" : "Active"}</td>
                     <td className="py-2">
-                      <Link href={`/admin/users/${d.id}`}>
-                        <Button variant="outline">View / Edit</Button>
-                      </Link>
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/admin/users/${d.id}`}>
+                          <Button variant="outline">View / Edit</Button>
+                        </Link>
+                        <Button
+                          variant={d.is_active === false ? "primary" : "danger"}
+                          disabled={savingId === d.id}
+                          onClick={() => setDriverActive(d.id, d.is_active === false)}
+                        >
+                          {d.is_active === false ? "Activate" : "Suspend"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

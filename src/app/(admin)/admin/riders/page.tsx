@@ -12,6 +12,9 @@ export default function AdminRidersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [sortBy, setSortBy] = useState<"name" | "bookings" | "recent">("name");
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     const session = getAuthSession();
@@ -27,7 +30,30 @@ export default function AdminRidersPage() {
     const matchSearch = !s || (r.full_name || r.email).toLowerCase().includes(s) || (r.email || "").toLowerCase().includes(s);
     const matchStatus = status === "all" || (status === "active" ? r.is_active !== false : r.is_active === false);
     return matchSearch && matchStatus;
+  }).sort((a, b) => {
+    if (sortBy === "bookings") return Number(b.bookings_count ?? 0) - Number(a.bookings_count ?? 0);
+    if (sortBy === "recent") return String(b.id).localeCompare(String(a.id));
+    return String(a.full_name || a.email).localeCompare(String(b.full_name || b.email));
   });
+
+  async function setRiderActive(userId: string, isActive: boolean) {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    setSavingId(userId);
+    setMsg("");
+    try {
+      await apiJson(`/admin/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: isActive }),
+      }, session.accessToken);
+      setRiders((prev) => prev.map((r) => (r.id === userId ? { ...r, is_active: isActive } : r)));
+      setMsg(`Rider ${isActive ? "activated" : "suspended"}.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to update rider status");
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -63,7 +89,13 @@ export default function AdminRidersPage() {
             <option value="active">Active only</option>
             <option value="suspended">Suspended only</option>
           </Select>
+          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+            <option value="name">Sort: Name</option>
+            <option value="bookings">Sort: Bookings</option>
+            <option value="recent">Sort: Recently Added</option>
+          </Select>
         </div>
+        {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
         <div className="mt-3 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
@@ -83,6 +115,7 @@ export default function AdminRidersPage() {
                   <th className="py-2 pr-3">Phone</th>
                   <th className="py-2 pr-3">NDIS</th>
                   <th className="py-2 pr-3">Bookings</th>
+                  <th className="py-2 pr-3">Status</th>
                   <th className="py-2">Actions</th>
                 </tr>
               </thead>
@@ -102,10 +135,22 @@ export default function AdminRidersPage() {
                     <td className="py-2 pr-3">{r.phone || "-"}</td>
                     <td className="py-2 pr-3">{r.ndis_id || "-"}</td>
                     <td className="py-2 pr-3">{r.bookings_count ?? "0"}</td>
+                    <td className="py-2 pr-3">
+                      {r.is_active === false ? "Suspended" : "Active"}
+                    </td>
                     <td className="py-2">
-                      <Link href={`/admin/users/${r.id}`}>
-                        <Button variant="outline">View / Edit</Button>
-                      </Link>
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/admin/users/${r.id}`}>
+                          <Button variant="outline">View / Edit</Button>
+                        </Link>
+                        <Button
+                          variant={r.is_active === false ? "primary" : "danger"}
+                          disabled={savingId === r.id}
+                          onClick={() => setRiderActive(r.id, r.is_active === false)}
+                        >
+                          {r.is_active === false ? "Activate" : "Suspend"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

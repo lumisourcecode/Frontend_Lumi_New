@@ -26,6 +26,10 @@ export default function AdminBillingPage() {
   const [scheme, setScheme] = useState("NDIS");
   const [amount, setAmount] = useState("");
   const [sendToEmail, setSendToEmail] = useState("");
+  const [planManagerEmail, setPlanManagerEmail] = useState("");
+  const [partnerEmail, setPartnerEmail] = useState("");
+  const [agentEmail, setAgentEmail] = useState("");
+  const [recipientPreset, setRecipientPreset] = useState<"rider" | "plan_manager" | "partner" | "agent" | "custom">("rider");
   const [invoiceId, setInvoiceId] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,6 +45,14 @@ export default function AdminBillingPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  function resolveRecipientEmail(riderEmail?: string) {
+    if (recipientPreset === "rider") return riderEmail || sendToEmail;
+    if (recipientPreset === "plan_manager") return planManagerEmail;
+    if (recipientPreset === "partner") return partnerEmail;
+    if (recipientPreset === "agent") return agentEmail;
+    return sendToEmail;
+  }
 
   async function generateInvoice(sendNow = false) {
     const session = getAuthSession();
@@ -70,9 +82,10 @@ export default function AdminBillingPage() {
       }, session.accessToken);
       setInvoiceId(created.id);
       if (sendNow) {
-        const toEmail = sendToEmail || "";
+        const currentTrip = items.find((x) => x.trip_id === tripId);
+        const toEmail = resolveRecipientEmail(currentTrip?.rider_email);
         if (!toEmail) {
-          setMsg("Invoice created. Add recipient email to send.");
+          setMsg("Invoice created. Add recipient email/preset target to send.");
         } else {
           await apiJson(`/admin/invoices/${created.id}/send`, {
             method: "POST",
@@ -90,10 +103,11 @@ export default function AdminBillingPage() {
     }
   }
 
-  async function sendExistingInvoice(id: string, email: string) {
+  async function sendExistingInvoice(id: string, riderEmail?: string) {
     const session = getAuthSession();
     if (!session?.accessToken) return;
-    if (!email) {
+    const to = resolveRecipientEmail(riderEmail);
+    if (!to) {
       setMsg("Recipient email is required.");
       return;
     }
@@ -102,7 +116,7 @@ export default function AdminBillingPage() {
     try {
       await apiJson(`/admin/invoices/${id}/send`, {
         method: "POST",
-        body: JSON.stringify({ to: email }),
+        body: JSON.stringify({ to }),
       }, session.accessToken);
       setMsg("Invoice sent successfully.");
     } catch (e) {
@@ -145,7 +159,17 @@ export default function AdminBillingPage() {
             <option>Partner Invoice</option>
           </Select>
           <Input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <Input className="md:col-span-2" placeholder="Send to email / plan manager email" value={sendToEmail} onChange={(e) => setSendToEmail(e.target.value)} />
+          <Select value={recipientPreset} onChange={(e) => setRecipientPreset(e.target.value as typeof recipientPreset)}>
+            <option value="rider">Recipient: Rider Email</option>
+            <option value="plan_manager">Recipient: Plan Manager</option>
+            <option value="partner">Recipient: Partner</option>
+            <option value="agent">Recipient: Agent</option>
+            <option value="custom">Recipient: Custom</option>
+          </Select>
+          <Input className="md:col-span-2" placeholder="Custom / fallback recipient email" value={sendToEmail} onChange={(e) => setSendToEmail(e.target.value)} />
+          <Input placeholder="Plan manager email" value={planManagerEmail} onChange={(e) => setPlanManagerEmail(e.target.value)} />
+          <Input placeholder="Partner email" value={partnerEmail} onChange={(e) => setPartnerEmail(e.target.value)} />
+          <Input placeholder="Agent email" value={agentEmail} onChange={(e) => setAgentEmail(e.target.value)} />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={() => generateInvoice(false)} disabled={busy}>{busy ? "Generating..." : "Generate Xero-ready Invoice"}</Button>
@@ -199,7 +223,7 @@ export default function AdminBillingPage() {
                           Use Details
                         </Button>
                         {invoiceId ? (
-                          <Button variant="outline" onClick={() => sendExistingInvoice(invoiceId, b.rider_email || sendToEmail)}>
+                          <Button variant="outline" onClick={() => sendExistingInvoice(invoiceId, b.rider_email)}>
                             Send
                           </Button>
                         ) : null}

@@ -41,6 +41,7 @@ export default function AdminUserDetailPage() {
   const [editing, setEditing] = useState<"rider" | "driver" | "partner" | "admin" | false>(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [timelineLimit, setTimelineLimit] = useState(120);
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -218,6 +219,41 @@ export default function AdminUserDetailPage() {
     }
   }
 
+  async function deleteUser() {
+    if (!session?.accessToken || !data) return;
+    if (data.user.is_super_admin) {
+      setMsg("Cannot delete super admin.");
+      return;
+    }
+    if (!confirm("Delete this user permanently? This cannot be undone.")) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      await apiJson(`/admin/users/${id}`, { method: "DELETE" }, session.accessToken);
+      window.location.href = "/admin/users";
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to delete user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function exportTimelineCsv() {
+    const headers = ["type", "label", "detail", "at"];
+    const rows = timeline.slice(0, timelineLimit);
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => [r.type, r.label, r.detail, r.at].map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `user-${id}-timeline.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function verifyDocument(docId: string) {
     if (!session?.accessToken) return;
     const draft = docDrafts[docId];
@@ -371,14 +407,22 @@ export default function AdminUserDetailPage() {
           <p><strong>Created:</strong> {new Date(user.created_at).toLocaleString()}</p>
         </div>
         {!user.is_super_admin && (
-          <Button
-            className="mt-3"
-            variant={user.is_active ? "danger" : "primary"}
-            disabled={saving}
-            onClick={toggleActive}
-          >
-            {user.is_active ? "Suspend User" : "Activate User"}
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant={user.is_active ? "danger" : "primary"}
+              disabled={saving}
+              onClick={toggleActive}
+            >
+              {user.is_active ? "Suspend User" : "Activate User"}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={saving}
+              onClick={deleteUser}
+            >
+              Delete User
+            </Button>
+          </div>
         )}
         <div className="mt-4 border-t border-slate-200 pt-4">
           <h3 className="font-medium text-slate-700">Change Password (Super Admin only)</h3>
@@ -488,9 +532,16 @@ export default function AdminUserDetailPage() {
               <option value="document">Documents</option>
               <option value="relation">Relationships</option>
             </Select>
+            <Select value={String(timelineLimit)} onChange={(e) => setTimelineLimit(Number(e.target.value))}>
+              <option value="40">Show 40 events</option>
+              <option value="80">Show 80 events</option>
+              <option value="120">Show 120 events</option>
+              <option value="200">Show 200 events</option>
+            </Select>
+            <Button variant="outline" onClick={exportTimelineCsv}>Export Timeline CSV</Button>
           </div>
           <div className="mt-3 space-y-2">
-            {timeline.slice(0, 120).map((event, idx) => (
+            {timeline.slice(0, timelineLimit).map((event, idx) => (
               <div key={`t-${idx}`} className="rounded-lg border border-slate-200 p-3 text-sm">
                 <p className="font-medium">{event.label}</p>
                 <p>{event.detail}</p>
