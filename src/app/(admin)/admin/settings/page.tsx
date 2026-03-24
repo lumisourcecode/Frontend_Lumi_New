@@ -7,13 +7,14 @@ import { apiJson, getAuthSession } from "@/lib/api-client";
 
 export default function AdminSettingsPage() {
   const [msg, setMsg] = useState("");
+  const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState<boolean | null>(null);
   const [settings, setSettings] = useState({
     autoDispatch: "on",
     autoInvoiceCreate: "on",
     autoInvoiceSend: "on",
     autoPaymentNotify: "on",
     receiptTemplate: "Receipt + payment confirmation",
-    brandName: "Lumi Ride",
+    brandName: "Lumiride",
     supportEmail: "support@lumiride.com.au",
     supportPhone: "+61 1300 000 000",
     timezone: "aest",
@@ -41,8 +42,10 @@ export default function AdminSettingsPage() {
       from_email?: string;
       secure_mode?: string;
       is_active?: boolean;
+      password_configured?: boolean;
     }>("/admin/settings/smtp", undefined, session.accessToken)
       .then((smtp) => {
+        setSmtpPasswordConfigured(Boolean(smtp.password_configured));
         setSettings((s) => ({
           ...s,
           smtpHost: smtp.host ?? "",
@@ -53,7 +56,9 @@ export default function AdminSettingsPage() {
           autoPaymentNotify: smtp.is_active ? "on" : s.autoPaymentNotify,
         }));
       })
-      .catch(() => {});
+      .catch(() => {
+        setSmtpPasswordConfigured(null);
+      });
     apiJson<{
       auto_invoice_on_trip_complete?: boolean;
       auto_email_invoice_to_rider?: boolean;
@@ -88,7 +93,7 @@ export default function AdminSettingsPage() {
         session.accessToken,
         { timeoutMs: 120_000 },
       );
-      saveAll("Settings saved. SMTP test sent.");
+      saveAll("Test email sent. Check the inbox (and spam) for the recipient you used.");
     } catch (e) {
       saveAll(e instanceof Error ? `SMTP test failed: ${e.message}` : "SMTP test failed.");
     }
@@ -99,17 +104,20 @@ export default function AdminSettingsPage() {
     if (!session?.accessToken) return;
     setMsg("");
     try {
+      const hadNewPassword = settings.smtpPassword.trim().length > 0;
       const body: Record<string, unknown> = {
         host: settings.smtpHost,
         port: Number(settings.smtpPort || 587),
         username: settings.smtpUser,
+        fromName: settings.brandName.trim() || "Lumiride",
         fromEmail: settings.smtpFrom,
         secureMode: settings.smtpSecure,
         isActive: true,
       };
-      if (settings.smtpPassword.trim()) body.password = settings.smtpPassword.trim();
+      if (hadNewPassword) body.password = settings.smtpPassword.trim();
       await apiJson("/admin/settings/smtp", { method: "PATCH", body: JSON.stringify(body) }, session.accessToken);
       setSettings((s) => ({ ...s, smtpPassword: "" }));
+      setSmtpPasswordConfigured((prev) => hadNewPassword || Boolean(prev));
       setMsg("SMTP settings saved. Password is stored server-side and never shown again.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to save SMTP settings");
@@ -208,10 +216,17 @@ export default function AdminSettingsPage() {
         <Card>
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">SMTP Configuration (Dynamic)</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Stored in Postgres (<code className="text-xs">admin_smtp_settings</code>). All app emails (password reset, admin tests, invoice send)
-            use this when <strong>Save</strong> has been run with <strong>TLS/SSL</strong> matching your provider (Gmail: TLS, port 587; SendGrid/Mailgun: their docs).
-            Turn on with Save — empty password keeps the previous password on the server.
+            Stored in Postgres (<code className="text-xs">admin_smtp_settings</code>). Gmail needs a 16-character{" "}
+            <strong>App Password</strong> (Google Account → Security → App passwords), not your normal Gmail password. Use{" "}
+            <strong>TLS</strong> and port <strong>587</strong>. The password field empty = &quot;keep existing&quot; — if you never saved one,{" "}
+            <strong>email cannot send</strong> until you paste the app password and save.
           </p>
+          {smtpPasswordConfigured === false ? (
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              No SMTP password is stored yet. Paste your Gmail App Password, then click <strong>Save SMTP Settings</strong>, then{" "}
+              <strong>Send Test Email</strong>.
+            </p>
+          ) : null}
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Input placeholder="SMTP Host" value={settings.smtpHost} onChange={(e) => setSettings((s) => ({ ...s, smtpHost: e.target.value }))} />
             <Input placeholder="SMTP Port" value={settings.smtpPort} onChange={(e) => setSettings((s) => ({ ...s, smtpPort: e.target.value }))} />
@@ -231,6 +246,20 @@ export default function AdminSettingsPage() {
             </Select>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() =>
+                setSettings((s) => ({
+                  ...s,
+                  smtpHost: "smtp.gmail.com",
+                  smtpPort: "587",
+                  smtpSecure: "tls",
+                }))
+              }
+            >
+              Use Gmail defaults (host / port / TLS)
+            </Button>
             <Button onClick={() => void saveSmtpSettings()}>Save SMTP Settings</Button>
             <Button variant="outline" onClick={runTestWorkflow}>Send Test Email</Button>
           </div>
