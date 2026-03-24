@@ -20,6 +20,14 @@ type AuthGuardProps = {
 const SKIP_AUTH = process.env.NEXT_PUBLIC_SKIP_AUTH === "1";
 
 export function AuthGuard({ role, children }: AuthGuardProps) {
+  const hasRequiredRole = (roles: string[] | undefined) => {
+    if (!roles?.length) return false;
+    if (role === "partner") {
+      return roles.includes("partner") || roles.includes("partner_employee");
+    }
+    return roles.includes(role);
+  };
+
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -35,7 +43,7 @@ export function AuthGuard({ role, children }: AuthGuardProps) {
 
     if (isLoginPage) {
       const session = getAuthSession();
-      const hasRole = session?.user?.roles?.includes(role) ?? false;
+      const hasRole = hasRequiredRole(session?.user?.roles);
       if (hasRole && session?.accessToken) {
         router.replace(DASHBOARD_PATHS[role]);
       }
@@ -44,7 +52,7 @@ export function AuthGuard({ role, children }: AuthGuardProps) {
 
     const session = getAuthSession();
     const hasSession = !!session?.accessToken;
-    const hasRole = session?.user?.roles?.includes(role) ?? false;
+    const hasRole = hasRequiredRole(session?.user?.roles);
 
     if (!hasSession || !hasRole) {
       router.replace(loginPath);
@@ -63,7 +71,7 @@ export function AuthGuard({ role, children }: AuthGuardProps) {
 
   if (isLoginPage) {
     const session = getAuthSession();
-    const hasRole = session?.user?.roles?.includes(role) ?? false;
+    const hasRole = hasRequiredRole(session?.user?.roles);
     if (hasRole && session?.accessToken) {
       return (
         <div className="flex min-h-[40vh] items-center justify-center">
@@ -76,7 +84,7 @@ export function AuthGuard({ role, children }: AuthGuardProps) {
 
   const session = getAuthSession();
   const hasSession = !!session?.accessToken;
-  const hasRole = session?.user?.roles?.includes(role) ?? false;
+  const hasRole = hasRequiredRole(session?.user?.roles);
 
   if (!hasSession || !hasRole) {
     return (

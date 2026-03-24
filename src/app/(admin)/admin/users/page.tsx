@@ -126,7 +126,7 @@ function AdminUsersContent() {
 
       <Card>
         <h2 className="text-lg font-semibold text-[var(--color-primary)]">Create User</h2>
-        <p className="mt-1 text-xs text-slate-600">Only super admin (admin@lumiride.com) can create admin users.</p>
+        <p className="mt-1 text-xs text-slate-600">Only super admin (admin@lumiride.com.au) can create admin users.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <Input placeholder="Email" type="email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} />
           <Input placeholder="Password" type="password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
