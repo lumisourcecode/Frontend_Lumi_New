@@ -26,9 +26,13 @@ export default function AdminActivityPage() {
       setError("Please login as admin.");
       return;
     }
-    apiJson<{ items: Activity[] }>("/admin/activity?limit=100", undefined, session.accessToken)
+    apiJson<{ items: Activity[] }>("/admin/activity?limit=100", undefined, session.accessToken, { timeoutMs: 90_000 })
       .then((r) => setItems(r.items))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed"));
+      .catch((e) =>
+        setError(
+          e instanceof Error ? e.message : "Failed",
+        ),
+      );
   }, []);
 
   return (

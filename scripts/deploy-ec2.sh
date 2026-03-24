@@ -54,8 +54,8 @@ server {
         proxy_pass http://127.0.0.1:4000/;
         proxy_http_version 1.1;
         proxy_connect_timeout 15s;
-        proxy_send_timeout 180s;
-        proxy_read_timeout 180s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -105,8 +105,8 @@ ${dh_extra}
         proxy_pass http://127.0.0.1:4000/;
         proxy_http_version 1.1;
         proxy_connect_timeout 15s;
-        proxy_send_timeout 180s;
-        proxy_read_timeout 180s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
