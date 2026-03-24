@@ -15,6 +15,8 @@ type UserDetail = {
   adminProfile: { display_name: string } | null;
   bookingsCount: number;
   partnerClientsCount: number;
+  tripsCount?: number;
+  supportTicketsCount?: number;
 };
 
 type AdminDocument = { id: string; doc_type: string; status: string; expiry?: string; admin_notes?: string };
@@ -25,11 +27,13 @@ export default function AdminUserDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [data, setData] = useState<UserDetail | null>(null);
-  const [tab, setTab] = useState<"overview" | "documents" | "history" | "activity" | "relations">("overview");
+  const [tab, setTab] = useState<"overview" | "documents" | "history" | "activity" | "relations" | "support">("overview");
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
   const [history, setHistory] = useState<{ bookings: Array<Record<string, unknown>>; trips: Array<Record<string, unknown>> }>({ bookings: [], trips: [] });
   const [activity, setActivity] = useState<Array<Record<string, unknown>>>([]);
   const [relations, setRelations] = useState<{ partnerClients: Array<Record<string, unknown>>; riderPartners: Array<Record<string, unknown>> }>({ partnerClients: [], riderPartners: [] });
+  const [supportTickets, setSupportTickets] = useState<Array<Record<string, unknown>>>([]);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("");
   const [partners, setPartners] = useState<PartnerLite[]>([]);
   const [riders, setRiders] = useState<RiderLite[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
@@ -149,7 +153,13 @@ export default function AdminUserDetailPage() {
         .then((r) => setRiders(r.items))
         .catch(() => setRiders([]));
     }
-  }, [tab, id, session?.accessToken]);
+    if (tab === "support") {
+      const qs = ticketStatusFilter ? `?status=${encodeURIComponent(ticketStatusFilter)}` : "";
+      apiJson<{ items: Array<Record<string, unknown>> }>(`/admin/users/${id}/support-tickets${qs}`, undefined, session.accessToken)
+        .then((r) => setSupportTickets(r.items ?? []))
+        .catch(() => setSupportTickets([]));
+    }
+  }, [tab, id, session?.accessToken, ticketStatusFilter]);
 
   async function saveProfile() {
     if (!session?.accessToken) return;
@@ -312,6 +322,30 @@ export default function AdminUserDetailPage() {
     }
   }
 
+  async function updateTicketStatus(ticketId: string, status: string) {
+    if (!session?.accessToken || !status) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      await apiJson(`/admin/support-tickets/${ticketId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }, session.accessToken);
+      setMsg("Ticket updated.");
+      const qs = ticketStatusFilter ? `?status=${encodeURIComponent(ticketStatusFilter)}` : "";
+      const r = await apiJson<{ items: Array<Record<string, unknown>> }>(
+        `/admin/users/${id}/support-tickets${qs}`,
+        undefined,
+        session.accessToken,
+      );
+      setSupportTickets(r.items ?? []);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to update ticket");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function removeRelation(partnerId: string, riderId: string) {
     if (!session?.accessToken) return;
     setSaving(true);
@@ -392,6 +426,8 @@ export default function AdminUserDetailPage() {
   if (!data) return <Card><p>Loading...</p></Card>;
 
   const { user, riderProfile, driverProfile, partnerProfile, adminProfile, bookingsCount, partnerClientsCount } = data;
+  const tripsCount = data.tripsCount ?? 0;
+  const supportTicketsCount = data.supportTicketsCount ?? 0;
 
   return (
     <div className="space-y-4">
@@ -405,6 +441,16 @@ export default function AdminUserDetailPage() {
           <p><strong>Roles:</strong> {user.roles.join(", ")}</p>
           <p><strong>Status:</strong> <Badge tone={user.is_active ? "certified" : "pending"}>{user.is_active ? "Active" : "Suspended"}</Badge></p>
           <p><strong>Created:</strong> {new Date(user.created_at).toLocaleString()}</p>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <span><strong>Bookings</strong> (as rider): {bookingsCount}</span>
+          {user.roles.includes("driver") ? (
+            <span><strong>Trips</strong> (as driver): {tripsCount}</span>
+          ) : null}
+          {user.roles.includes("partner") ? (
+            <span><strong>Partner clients</strong>: {partnerClientsCount}</span>
+          ) : null}
+          <span><strong>Support tickets</strong> (filed): {supportTicketsCount}</span>
         </div>
         {!user.is_super_admin && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -460,9 +506,9 @@ export default function AdminUserDetailPage() {
       </Card>
       <Card>
         <div className="flex flex-wrap gap-2">
-          {(["overview", "relations", "documents", "history", "activity"] as const).map((t) => (
+          {(["overview", "relations", "documents", "history", "activity", "support"] as const).map((t) => (
             <Button key={t} variant={tab === t ? "primary" : "outline"} onClick={() => setTab(t)}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {t === "support" ? "Support tickets" : t.charAt(0).toUpperCase() + t.slice(1)}
             </Button>
           ))}
         </div>
@@ -549,6 +595,56 @@ export default function AdminUserDetailPage() {
               </div>
             ))}
           </div>
+        </Card>
+      )}
+      {tab === "support" && (
+        <Card>
+          <h2 className="font-bold text-[var(--color-primary)]">Support tickets</h2>
+          <p className="mt-1 text-sm text-slate-600">Tickets this user created across portals.</p>
+          <div className="mt-3 max-w-xs">
+            <Select value={ticketStatusFilter} onChange={(e) => setTicketStatusFilter(e.target.value)}>
+              <option value="">All statuses</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Closed">Closed</option>
+            </Select>
+          </div>
+          {supportTickets.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">No tickets for this user.</p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {supportTickets.map((row) => (
+                <div key={String(row.id)} className="rounded-lg border border-slate-200 p-3 text-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-slate-900">{String(row.issue_type ?? "Issue")}</p>
+                      <p className="text-xs text-slate-500">{String(row.role ?? "")} · {row.created_at ? new Date(String(row.created_at)).toLocaleString() : "—"}</p>
+                      {row.reference_id ? <p className="text-xs text-slate-500">Ref: {String(row.reference_id)}</p> : null}
+                    </div>
+                    <Badge tone={String(row.status) === "Open" ? "pending" : "certified"}>{String(row.status ?? "—")}</Badge>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-slate-700">{String(row.message ?? "")}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Select
+                      value=""
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v) void updateTicketStatus(String(row.id), v);
+                      }}
+                      disabled={saving}
+                    >
+                      <option value="">Change status…</option>
+                      <option value="Open">Open</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Resolved">Resolved</option>
+                      <option value="Closed">Closed</option>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
       {tab === "activity" && (
@@ -706,6 +802,7 @@ export default function AdminUserDetailPage() {
               <Input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
               <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
               <Input placeholder="Vehicle rego" value={form.vehicleRego} onChange={(e) => setForm((p) => ({ ...p, vehicleRego: e.target.value }))} />
+              <p className="text-sm">Trips completed / assigned: {tripsCount}</p>
               <p className="text-sm">Verification: <Badge tone={driverProfile.verification_status === "Approved" ? "certified" : "pending"}>{driverProfile.verification_status}</Badge></p>
               <div className="flex gap-2">
                 <Button disabled={saving} onClick={saveProfile}>Save</Button>
@@ -717,6 +814,7 @@ export default function AdminUserDetailPage() {
               <p>Name: {driverProfile.full_name || "-"}</p>
               <p>Phone: {driverProfile.phone || "-"}</p>
               <p>Vehicle: {driverProfile.vehicle_rego || "-"}</p>
+              <p>Trips (as driver): {tripsCount}</p>
               <p>Verification: <Badge tone={driverProfile.verification_status === "Approved" ? "certified" : "pending"}>{driverProfile.verification_status}</Badge></p>
               <Button variant="outline" className="mt-2" onClick={() => setEditing("driver")}>Edit Profile</Button>
             </div>

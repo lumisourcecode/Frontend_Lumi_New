@@ -48,17 +48,36 @@ export default function AdminBookingsPage() {
   const [createMobility, setCreateMobility] = useState("Wheelchair-accessible");
   const [updating, setUpdating] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [tripStateFilter, setTripStateFilter] = useState("all");
+  const [searchQ, setSearchQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [riderFilter, setRiderFilter] = useState("");
 
   const session = getAuthSession();
 
-  const filteredBookings = useMemo(() => {
-    if (filterStatus === "all") return bookings;
-    return bookings.filter((b) => b.status === filterStatus);
-  }, [bookings, filterStatus]);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(searchQ), 400);
+    return () => clearTimeout(timer);
+  }, [searchQ]);
+
+  const bookingsPath = useMemo(() => {
+    const params = new URLSearchParams();
+    if (filterStatus !== "all") params.set("status", filterStatus);
+    if (tripStateFilter !== "all") params.set("tripState", tripStateFilter);
+    if (debouncedQ.trim()) params.set("q", debouncedQ.trim());
+    if (dateFrom) params.set("from", new Date(dateFrom).toISOString());
+    if (dateTo) params.set("to", new Date(`${dateTo}T23:59:59.999`).toISOString());
+    if (riderFilter) params.set("riderId", riderFilter);
+    const qs = params.toString();
+    return `/admin/bookings${qs ? `?${qs}` : ""}`;
+  }, [filterStatus, tripStateFilter, debouncedQ, dateFrom, dateTo, riderFilter]);
 
   function refetch() {
     if (!session?.accessToken) return;
-    apiJson<{ items: Booking[] }>("/admin/bookings", undefined, session.accessToken)
+    setLoading(true);
+    apiJson<{ items: Booking[] }>(bookingsPath, undefined, session.accessToken, { timeoutMs: 90_000 })
       .then((r) => setBookings(r.items))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -67,10 +86,14 @@ export default function AdminBookingsPage() {
   useEffect(() => {
     if (!session?.accessToken) return;
     const t = session.accessToken;
-    apiJson<{ items: Booking[] }>("/admin/bookings", undefined, t).then((r) => setBookings(r.items)).catch(() => {}).finally(() => setLoading(false));
+    setLoading(true);
+    apiJson<{ items: Booking[] }>(bookingsPath, undefined, t, { timeoutMs: 90_000 })
+      .then((r) => setBookings(r.items))
+      .catch(() => {})
+      .finally(() => setLoading(false));
     apiJson<{ items: typeof riders }>("/admin/riders", undefined, t).then((r) => setRiders(r.items)).catch(() => {});
     apiJson<{ items: typeof drivers }>("/admin/drivers", undefined, t).then((r) => setDrivers(r.items)).catch(() => {});
-  }, [session?.accessToken]);
+  }, [session?.accessToken, bookingsPath]);
 
   async function createBooking() {
     if (!session?.accessToken || !createRiderId || !createPickup || !createDropoff || !createScheduledAt) {
@@ -151,15 +174,42 @@ export default function AdminBookingsPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">All Bookings</h2>
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="all">All statuses</option>
-              <option value="pending_matching">Pending matching</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </Select>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
+              Refresh
+            </Button>
             <Button onClick={() => setShowCreate(!showCreate)}>{showCreate ? "Hide" : "Create Booking"}</Button>
           </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <Input
+            placeholder="Search route, rider email, name"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            className="min-w-0"
+          />
+          <Select value={riderFilter} onChange={(e) => setRiderFilter(e.target.value)}>
+            <option value="">All riders</option>
+            {riders.map((r) => (
+              <option key={r.id} value={r.id}>{r.full_name || r.email}</option>
+            ))}
+          </Select>
+          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="all">All booking statuses</option>
+            <option value="pending_matching">Pending matching</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </Select>
+          <Select value={tripStateFilter} onChange={(e) => setTripStateFilter(e.target.value)}>
+            <option value="all">Any trip</option>
+            <option value="unassigned">No trip row</option>
+            <option value="pending_assignment">Trip: pending assignment</option>
+            <option value="Assigned">Trip: assigned</option>
+            <option value="Completed">Trip: completed</option>
+            <option value="Cancelled">Trip: cancelled</option>
+          </Select>
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="Scheduled from" />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="Scheduled to" />
         </div>
         {showCreate ? (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -218,12 +268,12 @@ export default function AdminBookingsPage() {
             {msg ? <p className="mt-2 text-sm text-slate-600">{msg}</p> : null}
           </div>
         ) : null}
-        <p className="mt-2 text-xs text-slate-500">Showing {filteredBookings.length} of {bookings.length} bookings</p>
+        <p className="mt-2 text-xs text-slate-500">Showing {bookings.length} bookings (server-filtered)</p>
         <div className="mt-4 overflow-x-auto">
           {loading ? (
             <p className="py-4 text-sm text-slate-500">Loading...</p>
-          ) : filteredBookings.length === 0 ? (
-            <p className="py-4 text-sm text-slate-500">No bookings yet. Create one above or from Dispatch.</p>
+          ) : bookings.length === 0 ? (
+            <p className="py-4 text-sm text-slate-500">No bookings match filters. Adjust filters or create a booking.</p>
           ) : (
             <table className="min-w-full text-left text-sm">
               <thead>
@@ -238,7 +288,7 @@ export default function AdminBookingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.map((b) => (
+                {bookings.map((b) => (
                   <tr key={b.id} className="border-b">
                     <td className="py-2 pr-3">
                       {b.rider_id ? (
