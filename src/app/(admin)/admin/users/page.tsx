@@ -54,7 +54,7 @@ function AdminUsersContent() {
       partners: "/admin/partners",
     };
     setError("");
-    apiJson<{ items: UserRow[] }>(endpoints[tab], undefined, token)
+    apiJson<{ items: UserRow[] }>(endpoints[tab], undefined, token, { timeoutMs: 90_000 })
       .then((res) => setUsers(res.items))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
   }, [tab, session?.accessToken]);
@@ -96,8 +96,8 @@ function AdminUsersContent() {
       setCreatePassword("");
       setCreateFullName("");
       setTab("all");
-      apiJson<{ items: UserRow[] }>("/admin/users", undefined, session.accessToken).then((res) =>
-        setUsers(res.items),
+      apiJson<{ items: UserRow[] }>("/admin/users", undefined, session.accessToken, { timeoutMs: 90_000 }).then(
+        (res) => setUsers(res.items),
       );
     } catch (e) {
       setCreateMsg(e instanceof Error ? e.message : "Failed");

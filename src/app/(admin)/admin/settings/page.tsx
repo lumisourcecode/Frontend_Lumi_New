@@ -63,10 +63,15 @@ export default function AdminSettingsPage() {
     if (!session?.accessToken) return;
     setMsg("");
     try {
-      await apiJson("/admin/settings/smtp/test", {
-        method: "POST",
-        body: JSON.stringify({ to: settings.smtpFrom || settings.supportEmail }),
-      }, session.accessToken);
+      await apiJson(
+        "/admin/settings/smtp/test",
+        {
+          method: "POST",
+          body: JSON.stringify({ to: settings.smtpFrom || settings.supportEmail }),
+        },
+        session.accessToken,
+        { timeoutMs: 120_000 },
+      );
       saveAll("Settings saved. SMTP test sent.");
     } catch (e) {
       saveAll(e instanceof Error ? `SMTP test failed: ${e.message}` : "SMTP test failed.");

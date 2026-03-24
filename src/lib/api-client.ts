@@ -18,17 +18,24 @@ export function getApiBaseUrl() {
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
+export type ApiJsonOptions = {
+  /** Override fetch abort timeout (e.g. SMTP test can take longer than default). */
+  timeoutMs?: number;
+};
+
 export async function apiJson<T>(
   path: string,
   init?: RequestInit,
   token?: string,
+  options?: ApiJsonOptions,
 ): Promise<T> {
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
+  const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(`${getApiBaseUrl()}${path}`, {
