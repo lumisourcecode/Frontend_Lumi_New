@@ -67,12 +67,24 @@ const automationHealth = [
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [tripAlerts, setTripAlerts] = useState<Array<{ id: string; type: string; payload: Record<string, unknown>; created_at: string }>>([]);
   const session = getAuthSession();
 
   useEffect(() => {
     if (!session?.accessToken) return;
     apiJson<Stats>("/admin/stats", undefined, session.accessToken)
       .then(setStats)
+      .catch(() => {});
+  }, [session?.accessToken]);
+
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    apiJson<{ items: Array<{ id: string; type: string; payload: Record<string, unknown>; created_at: string }> }>(
+      "/admin/notifications?limit=25",
+      undefined,
+      session.accessToken,
+    )
+      .then((r) => setTripAlerts((r.items || []).filter((n) => n.type === "admin_trip_update")))
       .catch(() => {});
   }, [session?.accessToken]);
 
@@ -118,6 +130,30 @@ export default function AdminDashboardPage() {
           <Card><p className="text-sm text-slate-600">Loading stats...</p></Card>
         )}
       </div>
+
+      {tripAlerts.length > 0 ? (
+        <Card>
+          <h2 className="text-lg font-semibold text-[var(--color-primary)]">Live trip alerts</h2>
+          <p className="mt-1 text-xs text-slate-500">Driver milestones (arrived, on board, completed) for all trips.</p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {tripAlerts.slice(0, 6).map((n) => {
+              const p = n.payload as { title?: string; message?: string; tripId?: string };
+              return (
+                <li key={n.id} className="rounded-xl border border-slate-100 bg-slate-50/90 px-3 py-2">
+                  <span className="font-medium text-slate-800">{p.title || n.type}</span>
+                  {p.message ? <p className="text-xs text-slate-600">{p.message}</p> : null}
+                  {p.tripId ? (
+                    <Link href={`/admin/trips-history?trip=${encodeURIComponent(String(p.tripId))}`} className="text-xs text-[var(--color-primary)] underline">
+                      Open trip
+                    </Link>
+                  ) : null}
+                  <p className="text-[10px] text-slate-400">{new Date(n.created_at).toLocaleString()}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr,1fr]">
         <Card>

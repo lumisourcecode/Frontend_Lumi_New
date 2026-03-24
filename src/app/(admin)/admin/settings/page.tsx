@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -21,8 +21,10 @@ export default function AdminSettingsPage() {
     smtpHost: "",
     smtpPort: "587",
     smtpUser: "",
+    smtpPassword: "",
     smtpFrom: "",
     smtpSecure: "tls",
+    tripProgressNotify: "on",
     mfa: "required",
     sessionTimeout: "30",
     passwordPolicy: "strict",
@@ -49,6 +51,20 @@ export default function AdminSettingsPage() {
           smtpFrom: smtp.from_email ?? "",
           smtpSecure: smtp.secure_mode ?? "tls",
           autoPaymentNotify: smtp.is_active ? "on" : s.autoPaymentNotify,
+        }));
+      })
+      .catch(() => {});
+    apiJson<{
+      auto_invoice_on_trip_complete?: boolean;
+      auto_email_invoice_to_rider?: boolean;
+      trip_progress_notifications?: boolean;
+    }>("/admin/settings/platform", undefined, session.accessToken)
+      .then((p) => {
+        setSettings((s) => ({
+          ...s,
+          autoInvoiceCreate: p.auto_invoice_on_trip_complete !== false ? "on" : "off",
+          autoInvoiceSend: p.auto_email_invoice_to_rider ? "on" : "off",
+          tripProgressNotify: p.trip_progress_notifications !== false ? "on" : "off",
         }));
       })
       .catch(() => {});
@@ -83,20 +99,43 @@ export default function AdminSettingsPage() {
     if (!session?.accessToken) return;
     setMsg("");
     try {
-      await apiJson("/admin/settings/smtp", {
-        method: "PATCH",
-        body: JSON.stringify({
-          host: settings.smtpHost,
-          port: Number(settings.smtpPort || 587),
-          username: settings.smtpUser,
-          fromEmail: settings.smtpFrom,
-          secureMode: settings.smtpSecure,
-          isActive: true,
-        }),
-      }, session.accessToken);
-      setMsg("SMTP settings saved to backend.");
+      const body: Record<string, unknown> = {
+        host: settings.smtpHost,
+        port: Number(settings.smtpPort || 587),
+        username: settings.smtpUser,
+        fromEmail: settings.smtpFrom,
+        secureMode: settings.smtpSecure,
+        isActive: true,
+      };
+      if (settings.smtpPassword.trim()) body.password = settings.smtpPassword.trim();
+      await apiJson("/admin/settings/smtp", { method: "PATCH", body: JSON.stringify(body) }, session.accessToken);
+      setSettings((s) => ({ ...s, smtpPassword: "" }));
+      setMsg("SMTP settings saved. Password is stored server-side and never shown again.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Failed to save SMTP settings");
+    }
+  }
+
+  async function savePlatformSettings() {
+    const session = getAuthSession();
+    if (!session?.accessToken) return;
+    setMsg("");
+    try {
+      await apiJson(
+        "/admin/settings/platform",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            autoInvoiceOnTripComplete: settings.autoInvoiceCreate === "on",
+            autoEmailInvoiceToRider: settings.autoInvoiceSend === "on",
+            tripProgressNotifications: settings.tripProgressNotify === "on",
+          }),
+        },
+        session.accessToken,
+      );
+      setMsg("Trip / invoice automation saved.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to save platform settings");
     }
   }
 
@@ -129,10 +168,19 @@ export default function AdminSettingsPage() {
               <option value="on">Auto payment notifications: ON</option>
               <option value="off">Auto payment notifications: OFF</option>
             </Select>
+            <Select value={settings.tripProgressNotify} onChange={(e) => setSettings((s) => ({ ...s, tripProgressNotify: e.target.value }))}>
+              <option value="on">Trip step alerts (rider + admins): ON</option>
+              <option value="off">Trip step alerts (rider + admins): OFF</option>
+            </Select>
             <Input value={settings.receiptTemplate} onChange={(e) => setSettings((s) => ({ ...s, receiptTemplate: e.target.value }))} className="md:col-span-2" />
           </div>
+          <p className="mt-2 text-xs text-slate-600">
+            Auto invoice creates a draft (or sent if email below is on) when a trip is marked completed — driver flow or admin trip history.
+            Email uses SMTP from this page (or env fallback). Set <code className="rounded bg-slate-100 px-1">BILLING_INTERNAL_SECRET</code> and{" "}
+            <code className="rounded bg-slate-100 px-1">BILLING_SERVICE_URL</code> on services that call billing internally.
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={() => saveAll("Automation settings saved.")}>Save Automation Settings</Button>
+            <Button onClick={() => void savePlatformSettings()}>Save automation to server</Button>
             <Button variant="outline" onClick={runTestWorkflow}>Run Test Workflow</Button>
           </div>
         </Card>
@@ -159,10 +207,22 @@ export default function AdminSettingsPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <h2 className="text-lg font-semibold text-[var(--color-primary)]">SMTP Configuration (Dynamic)</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Stored in Postgres (<code className="text-xs">admin_smtp_settings</code>). All app emails (password reset, admin tests, invoice send)
+            use this when <strong>Save</strong> has been run with <strong>TLS/SSL</strong> matching your provider (Gmail: TLS, port 587; SendGrid/Mailgun: their docs).
+            Turn on with Save — empty password keeps the previous password on the server.
+          </p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Input placeholder="SMTP Host" value={settings.smtpHost} onChange={(e) => setSettings((s) => ({ ...s, smtpHost: e.target.value }))} />
             <Input placeholder="SMTP Port" value={settings.smtpPort} onChange={(e) => setSettings((s) => ({ ...s, smtpPort: e.target.value }))} />
             <Input placeholder="SMTP Username" value={settings.smtpUser} onChange={(e) => setSettings((s) => ({ ...s, smtpUser: e.target.value }))} />
+            <Input
+              placeholder="SMTP Password (leave blank to keep existing)"
+              type="password"
+              autoComplete="new-password"
+              value={settings.smtpPassword}
+              onChange={(e) => setSettings((s) => ({ ...s, smtpPassword: e.target.value }))}
+            />
             <Input placeholder="From Email" value={settings.smtpFrom} onChange={(e) => setSettings((s) => ({ ...s, smtpFrom: e.target.value }))} />
             <Select value={settings.smtpSecure} onChange={(e) => setSettings((s) => ({ ...s, smtpSecure: e.target.value }))}>
               <option value="tls">Security: TLS</option>
@@ -171,7 +231,7 @@ export default function AdminSettingsPage() {
             </Select>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={saveSmtpSettings}>Save SMTP Settings</Button>
+            <Button onClick={() => void saveSmtpSettings()}>Save SMTP Settings</Button>
             <Button variant="outline" onClick={runTestWorkflow}>Send Test Email</Button>
           </div>
         </Card>

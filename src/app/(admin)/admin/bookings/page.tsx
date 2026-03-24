@@ -46,6 +46,7 @@ export default function AdminBookingsPage() {
   const [createDriverId, setCreateDriverId] = useState("");
   const [createNotes, setCreateNotes] = useState("");
   const [createMobility, setCreateMobility] = useState("Wheelchair-accessible");
+  const [createPickupState, setCreatePickupState] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [tripStateFilter, setTripStateFilter] = useState("all");
@@ -116,6 +117,7 @@ export default function AdminBookingsPage() {
           driverId: createDriverId || undefined,
           mobilityNeeds: createMobility || undefined,
           notes: createNotes || undefined,
+          pickupState: createPickupState || undefined,
         }),
       }, session.accessToken);
       setMsg("Booking created.");
@@ -125,6 +127,7 @@ export default function AdminBookingsPage() {
       setCreateScheduledAt("");
       setCreateDriverId("");
       setCreateNotes("");
+      setCreatePickupState("");
       setShowCreate(false);
       refetch();
     } catch (e) {
@@ -258,6 +261,17 @@ export default function AdminBookingsPage() {
                 <option>Door-to-door assistance</option>
                 <option>Companion required</option>
                 <option>Service Animal</option>
+              </Select>
+              <Select value={createPickupState} onChange={(e) => setCreatePickupState(e.target.value)} title="Override AU state for driver matching if address text does not include it">
+                <option value="">Pickup state: infer from address</option>
+                <option value="NSW">NSW</option>
+                <option value="VIC">VIC</option>
+                <option value="QLD">QLD</option>
+                <option value="SA">SA</option>
+                <option value="WA">WA</option>
+                <option value="TAS">TAS</option>
+                <option value="NT">NT</option>
+                <option value="ACT">ACT</option>
               </Select>
               <Textarea placeholder="Notes" value={createNotes} onChange={(e) => setCreateNotes(e.target.value)} className="md:col-span-2" />
             </div>

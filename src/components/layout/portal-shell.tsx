@@ -75,7 +75,8 @@ export function PortalShell({ role, title, children }: PortalShellProps) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-white/98 px-4 py-3 shadow-sm backdrop-blur-sm">
+          <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-slate-200/80 bg-white/98 px-4 py-3 shadow-sm backdrop-blur-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{role}</p>
               <p className="font-semibold text-[var(--color-primary)]">{title}</p>
@@ -89,6 +90,33 @@ export function PortalShell({ role, title, children }: PortalShellProps) {
                 Logout
               </Button>
             </div>
+            </div>
+            {role === "driver" && isLoggedIn ? (
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-2">
+                <Link
+                  href="/driver/dashboard"
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    pathname === "/driver/dashboard"
+                      ? "bg-[var(--color-primary)] text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                  )}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/driver/manifest"
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    pathname === "/driver/manifest"
+                      ? "bg-[var(--color-primary)] text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                  )}
+                >
+                  Manifest
+                </Link>
+              </div>
+            ) : null}
           </header>
           <main className="flex-1 space-y-6 p-4 md:p-6">{children}</main>
         </div>

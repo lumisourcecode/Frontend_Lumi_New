@@ -28,12 +28,24 @@ function RiderDashboardContent() {
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationMsg, setLocationMsg] = useState("");
+  const [tripNotifs, setTripNotifs] = useState<Array<{ id: string; type: string; payload: Record<string, unknown>; created_at: string }>>([]);
 
   useEffect(() => {
     const session = getAuthSession();
     if (!session?.accessToken) return;
     apiJson<{ items: Array<{ id: string; pickup: string; dropoff: string; status: string }> }>("/rider/bookings", undefined, session.accessToken)
       .then((r) => setRecentBookings(r.items.slice(0, 5)))
+      .catch(() => {});
+    apiJson<{ items: Array<{ id: string; type: string; payload: Record<string, unknown>; created_at: string }> }>(
+      "/rider/notifications",
+      undefined,
+      session.accessToken,
+    )
+      .then((r) =>
+        setTripNotifs(
+          (r.items || []).filter((n) => String(n.type).startsWith("trip_") || n.type === "new_ride_request"),
+        ),
+      )
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -154,6 +166,25 @@ function RiderDashboardContent() {
           </div>
         </div>
       </Card>
+
+      {tripNotifs.length > 0 ? (
+        <Card>
+          <h3 className="text-sm font-semibold text-[var(--color-primary)]">Trip updates</h3>
+          <p className="mt-1 text-xs text-slate-500">Live steps from your driver (arrived, on board, completed).</p>
+          <ul className="mt-2 space-y-2 text-sm">
+            {tripNotifs.slice(0, 8).map((n) => {
+              const p = n.payload as { title?: string; message?: string; tripId?: string };
+              return (
+                <li key={n.id} className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2">
+                  <span className="font-medium text-slate-800">{p.title || n.type}</span>
+                  {p.message ? <p className="text-xs text-slate-600">{p.message}</p> : null}
+                  <p className="text-[10px] text-slate-400">{new Date(n.created_at).toLocaleString()}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

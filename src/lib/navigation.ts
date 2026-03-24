@@ -19,9 +19,9 @@ export const navigation = {
   driver: [
     { label: "Login", href: "/driver/login" },
     { label: "Onboard", href: "/driver/onboard" },
-    { label: "Profile", href: "/driver/profile" },
     { label: "Dashboard", href: "/driver/dashboard" },
     { label: "Manifest", href: "/driver/manifest" },
+    { label: "Profile", href: "/driver/profile" },
     { label: "Shift", href: "/driver/shift" },
     { label: "Earnings", href: "/driver/earnings" },
     { label: "Wallet", href: "/driver/wallet" },
