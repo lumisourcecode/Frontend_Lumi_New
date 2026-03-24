@@ -81,8 +81,23 @@ jobs:
             export LUMI_DOMAIN='${SITE_HOST}'
             export APP_PORT='${APP_PORT}'
             NGINX_ONLY=1 bash scripts/deploy-ec2.sh dev
-            sudo apt-get update -qq
-            sudo apt-get install -y certbot python3-certbot-nginx
+            APT_WAIT='-o Acquire::Lock::Timeout=180 -o DPkg::Lock::Timeout=180'
+            wait_for_apt_lock() {
+              local i=0
+              while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
+                || sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+                || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+                i=\$((i + 1))
+                [ \"\$i\" -gt 60 ] && { echo 'apt lock timeout' >&2; exit 1; }
+                echo 'Waiting for apt lock...'
+                sleep 5
+              done
+            }
+            if ! command -v certbot >/dev/null 2>&1; then
+              wait_for_apt_lock
+              sudo apt-get \$APT_WAIT update -qq
+              sudo apt-get \$APT_WAIT install -y certbot python3-certbot-nginx
+            fi
             sudo certbot --nginx -d '${SITE_HOST}' --non-interactive --agree-tos -m '${CERT_EMAIL}' --redirect || true
             sudo nginx -t && sudo systemctl reload nginx
             sudo ss -ltnp | rg ':80|:443' || true

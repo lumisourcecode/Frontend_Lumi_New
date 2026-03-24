@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Avoid CI/deploy failures when unattended-upgrades or another apt holds the lock (EC2).
+APT_WAIT=( -o "Acquire::Lock::Timeout=180" -o "DPkg::Lock::Timeout=180" )
+
+wait_for_apt_lock() {
+  local i=0
+  while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
+    || sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+    || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+    i=$((i + 1))
+    if [ "${i}" -gt 60 ]; then
+      echo "ERROR: apt/dpkg lock still held after ~300s" >&2
+      return 1
+    fi
+    echo "Waiting for apt lock to clear (${i}/60)..."
+    sleep 5
+  done
+}
+
 BRANCH="${1:-dev}"
 APP_NAME="${APP_NAME:-lumi-ride-dev}"
 APP_PORT="${APP_PORT:-3000}"
@@ -123,12 +141,14 @@ lumi_setup_https() {
   local DOMAIN="${LUMI_DOMAIN:-new.lumiride.com}"
   local CERT_EMAIL="${LUMI_CERTBOT_EMAIL:-admin@lumiride.com}"
   if ! command -v nginx >/dev/null 2>&1; then
-    sudo apt-get update -qq >/dev/null 2>&1 || true
-    sudo apt-get install -y nginx >/dev/null 2>&1 || true
+    wait_for_apt_lock || true
+    sudo apt-get "${APT_WAIT[@]}" update -qq >/dev/null 2>&1 || true
+    sudo apt-get "${APT_WAIT[@]}" install -y nginx >/dev/null 2>&1 || true
   fi
   if ! command -v certbot >/dev/null 2>&1; then
-    sudo apt-get update -qq >/dev/null 2>&1 || true
-    sudo apt-get install -y certbot python3-certbot-nginx >/dev/null 2>&1 || true
+    wait_for_apt_lock || true
+    sudo apt-get "${APT_WAIT[@]}" update -qq >/dev/null 2>&1 || true
+    sudo apt-get "${APT_WAIT[@]}" install -y certbot python3-certbot-nginx >/dev/null 2>&1 || true
   fi
   if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
     sudo certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${CERT_EMAIL}" --redirect || true
@@ -270,8 +290,9 @@ pm2 save
 
 # Verify Next.js process is reachable locally before reporting success.
 if ! command -v curl >/dev/null 2>&1; then
-  sudo apt-get update -qq >/dev/null 2>&1 || true
-  sudo apt-get install -y curl >/dev/null 2>&1 || true
+  wait_for_apt_lock || true
+  sudo apt-get "${APT_WAIT[@]}" update -qq >/dev/null 2>&1 || true
+  sudo apt-get "${APT_WAIT[@]}" install -y curl >/dev/null 2>&1 || true
 fi
 ready=0
 for _ in 1 2 3 4 5 6 7 8 9 10; do
