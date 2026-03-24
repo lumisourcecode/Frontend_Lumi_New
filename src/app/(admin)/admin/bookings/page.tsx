@@ -28,6 +28,8 @@ type Booking = {
   driver_email?: string;
   mobility_needs?: string;
   notes?: string;
+  is_ndis?: boolean;
+  vehicle_type_needed?: string;
 };
 
 export default function AdminBookingsPage() {
@@ -46,6 +48,8 @@ export default function AdminBookingsPage() {
   const [createDriverId, setCreateDriverId] = useState("");
   const [createNotes, setCreateNotes] = useState("");
   const [createMobility, setCreateMobility] = useState("Wheelchair-accessible");
+  const [createIsNdis, setCreateIsNdis] = useState(true);
+  const [createVehicleType, setCreateVehicleType] = useState("accessible");
   const [createPickupState, setCreatePickupState] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -55,6 +59,7 @@ export default function AdminBookingsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [riderFilter, setRiderFilter] = useState("");
+  const [ndisFilter, setNdisFilter] = useState<"all" | "ndis" | "private">("all");
 
   const session = getAuthSession();
 
@@ -71,9 +76,11 @@ export default function AdminBookingsPage() {
     if (dateFrom) params.set("from", new Date(dateFrom).toISOString());
     if (dateTo) params.set("to", new Date(`${dateTo}T23:59:59.999`).toISOString());
     if (riderFilter) params.set("riderId", riderFilter);
+    if (ndisFilter === "ndis") params.set("isNdis", "true");
+    if (ndisFilter === "private") params.set("isNdis", "false");
     const qs = params.toString();
     return `/admin/bookings${qs ? `?${qs}` : ""}`;
-  }, [filterStatus, tripStateFilter, debouncedQ, dateFrom, dateTo, riderFilter]);
+  }, [filterStatus, tripStateFilter, debouncedQ, dateFrom, dateTo, riderFilter, ndisFilter]);
 
   function refetch() {
     if (!session?.accessToken) return;
@@ -118,6 +125,8 @@ export default function AdminBookingsPage() {
           mobilityNeeds: createMobility || undefined,
           notes: createNotes || undefined,
           pickupState: createPickupState || undefined,
+          isNdis: createIsNdis,
+          vehicleTypeNeeded: createVehicleType,
         }),
       }, session.accessToken);
       setMsg("Booking created.");
@@ -203,6 +212,11 @@ export default function AdminBookingsPage() {
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </Select>
+          <Select value={ndisFilter} onChange={(e) => setNdisFilter(e.target.value as typeof ndisFilter)}>
+            <option value="all">NDIS: all</option>
+            <option value="ndis">NDIS-funded only</option>
+            <option value="private">Private / non-NDIS</option>
+          </Select>
           <Select value={tripStateFilter} onChange={(e) => setTripStateFilter(e.target.value)}>
             <option value="all">Any trip</option>
             <option value="unassigned">No trip row</option>
@@ -262,6 +276,14 @@ export default function AdminBookingsPage() {
                 <option>Companion required</option>
                 <option>Service Animal</option>
               </Select>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={createIsNdis} onChange={(e) => setCreateIsNdis(e.target.checked)} />
+                NDIS-funded trip (correct line items on invoices)
+              </label>
+              <Select value={createVehicleType} onChange={(e) => setCreateVehicleType(e.target.value)} title="Vehicle category for matching and NDIS codes">
+                <option value="standard">Vehicle: standard</option>
+                <option value="accessible">Vehicle: accessible / wheelchair</option>
+              </Select>
               <Select value={createPickupState} onChange={(e) => setCreatePickupState(e.target.value)} title="Override AU state for driver matching if address text does not include it">
                 <option value="">Pickup state: infer from address</option>
                 <option value="NSW">NSW</option>
@@ -295,6 +317,7 @@ export default function AdminBookingsPage() {
                   <th className="py-2 pr-3">Rider</th>
                   <th className="py-2 pr-3">Route</th>
                   <th className="py-2 pr-3">Distance</th>
+                  <th className="py-2 pr-3">NDIS / Vehicle</th>
                   <th className="py-2 pr-3">Support</th>
                   <th className="py-2 pr-3">Scheduled</th>
                   <th className="py-2 pr-3">Status</th>
@@ -318,6 +341,10 @@ export default function AdminBookingsPage() {
                       {b.pickup_lat != null && b.pickup_lng != null && b.dropoff_lat != null && b.dropoff_lng != null
                         ? `${haversineKm(b.pickup_lat, b.pickup_lng, b.dropoff_lat, b.dropoff_lng).toFixed(1)} km`
                         : "—"}
+                    </td>
+                    <td className="py-2 pr-3 text-xs">
+                      {b.is_ndis ? <Badge tone="certified" className="mb-1">NDIS</Badge> : <span className="text-slate-400">Private</span>}
+                      <div className="text-slate-600">{b.vehicle_type_needed || "—"}</div>
                     </td>
                     <td className="py-2 pr-3 text-xs">{b.mobility_needs || "—"}</td>
                     <td className="py-2 pr-3">{new Date(b.scheduled_at).toLocaleString()}</td>

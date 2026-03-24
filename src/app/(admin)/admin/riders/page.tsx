@@ -5,7 +5,16 @@ import Link from "next/link";
 import { Button, Card, Input, Select } from "@/components/ui/primitives";
 import { apiJson, getAuthSession } from "@/lib/api-client";
 
-type Rider = { id: string; email: string; full_name?: string; phone?: string; ndis_id?: string; bookings_count?: string; is_active?: boolean };
+type Rider = {
+  id: string;
+  email: string;
+  full_name?: string;
+  phone?: string;
+  ndis_id?: string;
+  plan_manager_email?: string | null;
+  bookings_count?: string;
+  is_active?: boolean;
+};
 
 export default function AdminRidersPage() {
   const [riders, setRiders] = useState<Rider[]>([]);
@@ -27,7 +36,11 @@ export default function AdminRidersPage() {
 
   const filtered = riders.filter((r) => {
     const s = search.toLowerCase();
-    const matchSearch = !s || (r.full_name || r.email).toLowerCase().includes(s) || (r.email || "").toLowerCase().includes(s);
+    const matchSearch =
+      !s ||
+      (r.full_name || r.email).toLowerCase().includes(s) ||
+      (r.email || "").toLowerCase().includes(s) ||
+      (r.plan_manager_email || "").toLowerCase().includes(s);
     const matchStatus = status === "all" || (status === "active" ? r.is_active !== false : r.is_active === false);
     return matchSearch && matchStatus;
   }).sort((a, b) => {
@@ -114,6 +127,7 @@ export default function AdminRidersPage() {
                   <th className="py-2 pr-3">Email</th>
                   <th className="py-2 pr-3">Phone</th>
                   <th className="py-2 pr-3">NDIS</th>
+                  <th className="py-2 pr-3">Plan mgr.</th>
                   <th className="py-2 pr-3">Bookings</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2">Actions</th>
@@ -134,6 +148,9 @@ export default function AdminRidersPage() {
                     </td>
                     <td className="py-2 pr-3">{r.phone || "-"}</td>
                     <td className="py-2 pr-3">{r.ndis_id || "-"}</td>
+                    <td className="max-w-[10rem] truncate py-2 pr-3 text-xs" title={r.plan_manager_email || undefined}>
+                      {r.plan_manager_email || "—"}
+                    </td>
                     <td className="py-2 pr-3">{r.bookings_count ?? "0"}</td>
                     <td className="py-2 pr-3">
                       {r.is_active === false ? "Suspended" : "Active"}

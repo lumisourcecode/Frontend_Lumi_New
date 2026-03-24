@@ -9,7 +9,16 @@ import { PasswordStrength, getPasswordStrength } from "@/components/auth/passwor
 
 type UserDetail = {
   user: { id: string; email: string; is_active: boolean; is_super_admin?: boolean; roles: string[]; created_at: string };
-  riderProfile: { full_name: string; phone: string; ndis_id: string } | null;
+  riderProfile: {
+    full_name: string;
+    phone: string;
+    ndis_id: string;
+    plan_manager_email?: string | null;
+    address_line1?: string | null;
+    suburb?: string | null;
+    state?: string | null;
+    postcode?: string | null;
+  } | null;
   driverProfile: { full_name: string; phone: string; vehicle_rego: string; verification_status: string } | null;
   partnerProfile: { org_name: string; contact_name: string } | null;
   adminProfile: { display_name: string } | null;
@@ -50,6 +59,11 @@ export default function AdminUserDetailPage() {
     fullName: "",
     phone: "",
     ndisId: "",
+    planManagerEmail: "",
+    addressLine1: "",
+    suburb: "",
+    addressState: "",
+    postcode: "",
     vehicleRego: "",
     orgName: "",
     contactName: "",
@@ -72,6 +86,11 @@ export default function AdminUserDetailPage() {
       fullName: r?.full_name || dr?.full_name || p?.contact_name || ad?.display_name || "",
       phone: r?.phone || dr?.phone || "",
       ndisId: r?.ndis_id || "",
+      planManagerEmail: r?.plan_manager_email ?? "",
+      addressLine1: r?.address_line1 ?? "",
+      suburb: r?.suburb ?? "",
+      addressState: r?.state ?? "",
+      postcode: r?.postcode ?? "",
       vehicleRego: dr?.vehicle_rego || "",
       orgName: p?.org_name || "",
       contactName: p?.contact_name || "",
@@ -172,6 +191,11 @@ export default function AdminUserDetailPage() {
           fullName: form.fullName || undefined,
           phone: form.phone || undefined,
           ndisId: form.ndisId || undefined,
+          planManagerEmail: form.planManagerEmail,
+          addressLine1: form.addressLine1,
+          suburb: form.suburb,
+          addressState: form.addressState,
+          postcode: form.postcode,
           vehicleRego: form.vehicleRego || undefined,
           orgName: form.orgName || undefined,
           contactName: form.contactName || undefined,
@@ -777,6 +801,19 @@ export default function AdminUserDetailPage() {
               <Input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
               <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
               <Input placeholder="NDIS ID" value={form.ndisId} onChange={(e) => setForm((p) => ({ ...p, ndisId: e.target.value }))} />
+              <Input
+                type="email"
+                placeholder="Plan manager email (invoicing)"
+                value={form.planManagerEmail}
+                onChange={(e) => setForm((p) => ({ ...p, planManagerEmail: e.target.value }))}
+              />
+              <p className="text-xs font-medium text-slate-600">Home address (invoice PDFs & records)</p>
+              <Input placeholder="Street address" value={form.addressLine1} onChange={(e) => setForm((p) => ({ ...p, addressLine1: e.target.value }))} />
+              <div className="grid gap-2 md:grid-cols-3">
+                <Input placeholder="Suburb" value={form.suburb} onChange={(e) => setForm((p) => ({ ...p, suburb: e.target.value }))} />
+                <Input placeholder="State" value={form.addressState} onChange={(e) => setForm((p) => ({ ...p, addressState: e.target.value }))} />
+                <Input placeholder="Postcode" value={form.postcode} onChange={(e) => setForm((p) => ({ ...p, postcode: e.target.value }))} />
+              </div>
               <p className="text-sm">Bookings: {bookingsCount}</p>
               <div className="flex gap-2">
                 <Button disabled={saving} onClick={saveProfile}>Save</Button>
@@ -788,6 +825,13 @@ export default function AdminUserDetailPage() {
               <p>Name: {riderProfile.full_name || "-"}</p>
               <p>Phone: {riderProfile.phone || "-"}</p>
               <p>NDIS ID: {riderProfile.ndis_id || "-"}</p>
+              <p>Plan manager email: {riderProfile.plan_manager_email || "—"}</p>
+              <p>
+                Address:{" "}
+                {[riderProfile.address_line1, riderProfile.suburb, riderProfile.state, riderProfile.postcode]
+                  .filter(Boolean)
+                  .join(", ") || "—"}
+              </p>
               <p>Bookings: {bookingsCount}</p>
               <Button variant="outline" className="mt-2" onClick={() => setEditing("rider")}>Edit Profile</Button>
             </div>

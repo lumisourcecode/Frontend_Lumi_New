@@ -50,7 +50,7 @@ export default function AdminPaymentsPage() {
     setBusy(true);
     setMsg("");
     try {
-      await apiJson("/admin/invoices/manual", {
+      await apiJson("/admin/billing/invoice-manual", {
         method: "POST",
         body: JSON.stringify({
           recipientId,

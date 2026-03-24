@@ -123,6 +123,56 @@ export async function apiJson<T>(
   }
 }
 
+/** Binary responses (PDF, ZIP) with Bearer auth; does not parse JSON on success. */
+export async function apiBlob(
+  path: string,
+  token: string,
+  options?: { timeoutMs?: number; method?: string; body?: BodyInit | null; headers?: HeadersInit },
+): Promise<{ blob: Blob; filename?: string }> {
+  const headers = new Headers(options?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  if (options?.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const timeoutMs = options?.timeoutMs ?? 120_000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${getApiBaseUrl()}${path}`, {
+      method: options?.method ?? "GET",
+      headers,
+      body: options?.body,
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      let message = `Request failed (${res.status})`;
+      try {
+        const payload = (await res.json()) as { error?: string };
+        if (payload?.error) message = payload.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(message);
+    }
+    const cd = res.headers.get("content-disposition");
+    let filename: string | undefined;
+    if (cd) {
+      const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
+      if (m) filename = decodeURIComponent(m[1].replace(/["']/g, "").trim());
+    }
+    const blob = await res.blob();
+    return { blob, filename };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Download timed out.");
+    }
+    throw err;
+  }
+}
+
 export function setAuthSession(session: AuthSession) {
   if (typeof window === "undefined") return;
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
