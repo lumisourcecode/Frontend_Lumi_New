@@ -64,7 +64,12 @@ export async function apiJson<T>(
     };
 
     if (!res.ok) {
-      const isAuthRequest = path === "/auth/login" || path === "/auth/register";
+      const isAuthRequest =
+        path === "/auth/login" ||
+        path === "/auth/register" ||
+        path === "/auth/google" ||
+        path === "/auth/send-otp" ||
+        path === "/auth/verify-otp";
       if (res.status === 401 && !isAuthRequest) {
         const inGracePeriod =
           typeof window !== "undefined" &&
@@ -80,8 +85,18 @@ export async function apiJson<T>(
       }
       let message = `Request failed (${res.status})`;
       try {
-        const payload = (await res.json()) as { error?: string };
+        const payload = (await res.json()) as { error?: string; details?: unknown };
         if (payload?.error) message = payload.error;
+        if (payload?.details !== undefined && payload?.details !== null) {
+          const raw =
+            typeof payload.details === "string"
+              ? payload.details
+              : JSON.stringify(payload.details);
+          if (raw && raw !== "{}" && !message.includes(raw.slice(0, 80))) {
+            const clipped = raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
+            message = `${message}: ${clipped}`;
+          }
+        }
       } catch {
         // ignore JSON parsing errors for non-JSON responses
       }
